@@ -90,7 +90,7 @@ erDiagram
 | `country` | character varying(60) | NO |  |  |
 | `created_at` | date | NO |  |  |
 
-### `order_items` — 1666 แถว
+### `order_items` — 1,666 แถว
 
 รายการสินค้าในแต่ละคำสั่งซื้อ
 
@@ -328,7 +328,7 @@ erDiagram
 | `applied_at` | date | NO |  |  |
 | `approved_at` | date | YES |  |  |
 
-### `transactions` — 2066 แถว
+### `transactions` — 2,066 แถว
 
 ธุรกรรม — amount เป็นบวก = เงินเข้า, ติดลบ = เงินออก
 
@@ -512,7 +512,7 @@ erDiagram
 | `name` | character varying(120) | NO |  |  |
 | `country` | character varying(60) | YES |  |  |
 
-### `invoice_items` — 1297 แถว
+### `invoice_items` — 1,297 แถว
 
 รายการเพลงในใบแจ้งหนี้
 
@@ -568,3 +568,145 @@ erDiagram
 | `composer` | character varying(200) | YES |  |  |
 | `milliseconds` | integer | NO |  | ความยาวเพลง (มิลลิวินาที) |
 | `unit_price` | numeric(6,2) | NO |  |  |
+
+## SaaS Analytics (Advanced) (`saas`)
+
+ธุรกิจซอฟต์แวร์แบบสมาชิก: แพ็กเกจ บริษัทลูกค้า ผู้ใช้ ประวัติ subscription (MRR) ใบแจ้งหนี้ และ event stream แบบ JSONB ~43,000 แถว — สำหรับ retention, churn, cohort และ JSON
+
+```mermaid
+erDiagram
+  users ||--o{ events : "user_id"
+  companies ||--o{ invoices : "company_id"
+  subscriptions ||--o{ invoices : "subscription_id"
+  companies ||--o{ subscriptions : "company_id"
+  plans ||--o{ subscriptions : "plan_id"
+  companies ||--o{ users : "company_id"
+  companies {
+    integer id PK
+    varchar name
+    varchar industry
+    varchar country
+    integer employees
+    date created_at
+  }
+  events {
+    bigint id PK
+    integer user_id FK
+    varchar event_type
+    timestamp occurred_at
+    jsonb properties
+  }
+  invoices {
+    integer id PK
+    integer company_id FK
+    integer subscription_id FK
+    date period_start
+    numeric amount
+    varchar status
+    date paid_at
+  }
+  plans {
+    integer id PK
+    varchar name
+    numeric monthly_price
+    integer seats_included
+    boolean is_active
+  }
+  subscriptions {
+    integer id PK
+    integer company_id FK
+    integer plan_id FK
+    varchar status
+    date started_at
+    date ended_at
+    numeric mrr
+  }
+  users {
+    integer id PK
+    integer company_id FK
+    varchar email
+    varchar full_name
+    varchar role
+    timestamp signed_up_at
+    timestamp last_seen_at
+  }
+```
+
+### `companies` — 120 แถว
+
+บริษัทลูกค้า (tenant) — บางรายยังอยู่ช่วง trial หรือยกเลิกแล้ว
+
+| Column | Type | Null | Key | คำอธิบาย |
+|---|---|---|---|---|
+| `id` | integer | NO | PK |  |
+| `name` | character varying(120) | NO |  |  |
+| `industry` | character varying(40) | YES |  | อุตสาหกรรม (อาจเป็น NULL) |
+| `country` | character varying(40) | NO |  |  |
+| `employees` | integer | YES |  |  |
+| `created_at` | date | NO |  |  |
+
+### `events` — 43,210 แถว
+
+event stream การใช้งานผลิตภัณฑ์ — properties เป็น JSONB (คีย์ไม่เหมือนกันทุก event)
+
+| Column | Type | Null | Key | คำอธิบาย |
+|---|---|---|---|---|
+| `id` | bigint | NO | PK |  |
+| `user_id` | integer | NO | FK → users.id |  |
+| `event_type` | character varying(30) | NO |  |  |
+| `occurred_at` | timestamp without time zone | NO |  |  |
+| `properties` | jsonb | NO |  | เช่น {"device": "web", "duration_ms": 1200, "report_type": "sales"} |
+
+### `invoices` — 1,436 แถว
+
+ใบแจ้งหนี้รายเดือน — status overdue/open = ยังไม่ได้รับเงิน
+
+| Column | Type | Null | Key | คำอธิบาย |
+|---|---|---|---|---|
+| `id` | integer | NO | PK |  |
+| `company_id` | integer | NO | FK → companies.id |  |
+| `subscription_id` | integer | NO | FK → subscriptions.id |  |
+| `period_start` | date | NO |  |  |
+| `amount` | numeric(10,2) | NO |  |  |
+| `status` | character varying(10) | NO |  |  |
+| `paid_at` | date | YES |  |  |
+
+### `plans` — 5 แถว
+
+แพ็กเกจราคา (Legacy ปิดขายแล้วแต่ยังมีลูกค้าเดิมใช้)
+
+| Column | Type | Null | Key | คำอธิบาย |
+|---|---|---|---|---|
+| `id` | integer | NO | PK |  |
+| `name` | character varying(40) | NO |  |  |
+| `monthly_price` | numeric(10,2) | NO |  |  |
+| `seats_included` | integer | NO |  |  |
+| `is_active` | boolean | NO |  |  |
+
+### `subscriptions` — 347 แถว
+
+ประวัติการสมัคร — 1 บริษัทมีหลายแถวเมื่ออัปเกรด/ดาวน์เกรด; ended_at IS NULL = ยังใช้งานอยู่; status trial + ended_at = ช่วงทดลองที่จบแล้ว
+
+| Column | Type | Null | Key | คำอธิบาย |
+|---|---|---|---|---|
+| `id` | integer | NO | PK |  |
+| `company_id` | integer | NO | FK → companies.id |  |
+| `plan_id` | integer | NO | FK → plans.id |  |
+| `status` | character varying(10) | NO |  |  |
+| `started_at` | date | NO |  |  |
+| `ended_at` | date | YES |  |  |
+| `mrr` | numeric(10,2) | NO |  | Monthly Recurring Revenue ของ subscription นี้ (trial = 0) |
+
+### `users` — 466 แถว
+
+ผู้ใช้ของแต่ละบริษัท — last_seen_at เป็น NULL ถ้าไม่เคยใช้งานหลังสมัคร
+
+| Column | Type | Null | Key | คำอธิบาย |
+|---|---|---|---|---|
+| `id` | integer | NO | PK |  |
+| `company_id` | integer | NO | FK → companies.id |  |
+| `email` | character varying(160) | NO |  |  |
+| `full_name` | character varying(100) | NO |  |  |
+| `role` | character varying(10) | NO |  |  |
+| `signed_up_at` | timestamp without time zone | NO |  |  |
+| `last_seen_at` | timestamp without time zone | YES |  |  |

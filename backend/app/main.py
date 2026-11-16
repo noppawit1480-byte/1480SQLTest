@@ -6,7 +6,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
-from app.routers import auth, learn, me, playground, practice
+from app.routers import admin, assistant, auth, learn, me, playground, practice, projects
 from app.services.sandbox.postgres import SandboxBusy
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -15,7 +15,7 @@ log = logging.getLogger("app")
 app = FastAPI(title="SQLab — SQL Learning & Practice Platform API", version="1.0.0",
               docs_url="/api/docs", openapi_url="/api/openapi.json", redoc_url=None)
 
-for r in (auth.router, me.router, learn.router, practice.router, playground.router):
+for r in (auth.router, me.router, learn.router, practice.router, projects.router, playground.router, assistant.router, admin.router):
     app.include_router(r)
 
 

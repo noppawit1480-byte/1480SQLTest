@@ -151,6 +151,7 @@ export function SqlEditor({ value, onChange, onRun, schema, height = "100%", err
         options={{
           minimap: { enabled: false },
           fontSize: 14,
+          fontLigatures: false,
           fontFamily: "'JetBrains Mono', 'Fira Code', ui-monospace, Menlo, Consolas, monospace",
           lineNumbers: "on",
           scrollBeyondLastLine: false,

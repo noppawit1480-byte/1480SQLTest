@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import {
-  Award, BookOpen, CheckCircle2, Clock, Dumbbell, Flame, GraduationCap, Hammer, Layers, Link2, Lock, PanelsTopLeft,
+  Award, BookOpen, Briefcase, Crown, CheckCircle2, Clock, Dumbbell, Flame, GraduationCap, Hammer, Layers, Link2, Lock, PanelsTopLeft,
   Play, Sprout, Target, Trophy, XCircle,
 } from "lucide-react";
 import { useApi } from "@/lib/hooks";
@@ -15,7 +15,7 @@ import { ButtonLink, Card, cx, DifficultyBadge, EmptyState, ErrorState, PageHead
 
 const ICONS: Record<string, typeof Award> = {
   play: Play, check: CheckCircle2, sprout: Sprout, graduation: GraduationCap, link: Link2, layers: Layers,
-  window: PanelsTopLeft, hammer: Hammer, flame: Flame, trophy: Trophy,
+  window: PanelsTopLeft, hammer: Hammer, flame: Flame, trophy: Trophy, briefcase: Briefcase, crown: Crown,
 };
 // Categorical slots 1–2 of the validated reference palette (light / dark steps).
 const SERIES = { light: { correct: "#2a78d6", wrong: "#eb6834" }, dark: { correct: "#3987e5", wrong: "#d95926" } };
@@ -84,9 +84,10 @@ export default function DashboardPage() {
       <PageHeader title={`สวัสดี, ${user!.display_name}`} description="ภาพรวมการเรียนรู้ของคุณ — คำนวณจากการใช้งานจริงทั้งหมด"
         actions={d.current_lesson && <ButtonLink variant="primary" href={`/learn/${d.current_lesson.course_slug}/${d.current_lesson.slug}`}><BookOpen className="size-4" /> เรียนต่อ: {d.current_lesson.title.split("—")[0]}</ButtonLink>} />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5" data-testid="stats">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-6" data-testid="stats">
         <StatCard label="บทเรียนที่เรียนจบ" value={`${d.lessons.completed}/${d.lessons.total}`} icon={<BookOpen className="size-4" />} />
         <StatCard label="โจทย์ที่ทำสำเร็จ" value={`${d.exercises.solved}/${d.exercises.total}`} icon={<Dumbbell className="size-4" />} />
+        <StatCard label="Projects สำเร็จ" value={`${d.projects.completed}/${d.projects.total}`} sub={`${d.projects.tasks_solved}/${d.projects.tasks_total} งาน`} icon={<Briefcase className="size-4" />} />
         <StatCard label="อัตราตอบถูก" value={d.submissions.accuracy === null ? "—" : `${d.submissions.accuracy}%`}
           sub={`${d.submissions.correct} ถูก จาก ${d.submissions.total} ครั้ง`} icon={<Target className="size-4" />} />
         <StatCard label="Learning Streak" value={<span className="flex items-center gap-1">{d.streak} <Flame className={cx("size-5", d.streak ? "text-warn" : "text-muted")} /></span>}

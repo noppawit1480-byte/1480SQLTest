@@ -71,6 +71,12 @@ services:
       MAX_RESULT_ROWS: ${MAX_RESULT_ROWS:-1000}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+      # SQL Learning Assistant — AI layer is optional; the key stays server-side
+      ASSISTANT_PROVIDER: ${ASSISTANT_PROVIDER:-auto}
+      ASSISTANT_MODEL: ${ASSISTANT_MODEL:-claude-opus-5-5}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ASSISTANT_AI_DAILY_LIMIT: ${ASSISTANT_AI_DAILY_LIMIT:-60}
+    # outbound HTTPS is needed only to reach the AI provider; the sandbox network stays internal
     networks: [web, core, sandbox]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]

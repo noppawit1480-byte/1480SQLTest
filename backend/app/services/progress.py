@@ -9,8 +9,8 @@ from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.config import get_settings
-from app.models import (Achievement, ActivityDay, Course, Exercise, Lesson, LessonProgress, QueryHistory, Submission,
-                        UserAchievement)
+from app.models import (Achievement, ActivityDay, Course, Exercise, Lesson, LessonProgress, Project, QueryHistory,
+                        Submission, UserAchievement)
 
 LEVELS = [(0, "Novice"), (50, "Beginner"), (250, "Intermediate"), (600, "Advanced"), (1000, "Professional")]
 
@@ -25,6 +25,8 @@ ACHIEVEMENTS = [
     ("data_builder", "Data Builder", "ทำโจทย์ DML/DDL ถูก 3 ข้อ", "hammer"),
     ("streak_7", "7-Day Streak", "เรียนต่อเนื่อง 7 วัน", "flame"),
     ("sql_professional", "SQL Professional", "สะสมคะแนนถึงระดับ Professional (1,000 คะแนน)", "trophy"),
+    ("real_world_analyst", "Real-World Analyst", "ทำ Real-World Project สำเร็จครบทุกงาน 1 โปรเจกต์", "briefcase"),
+    ("project_master", "Project Master", "ทำ Real-World Projects สำเร็จครบทุกโปรเจกต์", "crown"),
 ]
 
 
@@ -71,6 +73,20 @@ def solved_counts_by(db: Session, user_id: int, column) -> dict[str, int]:
     return {k: int(v) for k, v in rows}
 
 
+def project_progress(db: Session, user_id: int | None) -> dict[int, dict]:
+    """{project_id: {"total": n_tasks, "solved": n_solved}} for every project."""
+    rows = db.execute(select(Project.id, func.count(Exercise.id)).join(Exercise, Exercise.project_id == Project.id)
+                      .group_by(Project.id)).all()
+    out = {pid: {"total": int(n), "solved": 0} for pid, n in rows}
+    if user_id is not None:
+        solved = select(Submission.exercise_id).distinct().where(Submission.user_id == user_id, Submission.is_correct)
+        for pid, n in db.execute(select(Exercise.project_id, func.count()).where(Exercise.project_id.is_not(None),
+                                                                                  Exercise.id.in_(solved))
+                                 .group_by(Exercise.project_id)).all():
+            out.setdefault(pid, {"total": 0, "solved": 0})["solved"] = int(n)
+    return out
+
+
 def evaluate_achievements(db: Session, user_id: int) -> list[str]:
     """Award any newly-earned achievements. Returns keys of newly awarded ones."""
     have = set(db.scalars(select(UserAchievement.achievement_key).where(UserAchievement.user_id == user_id)))
@@ -84,6 +100,8 @@ def evaluate_achievements(db: Session, user_id: int) -> list[str]:
     beginner_done = db.scalar(select(func.count()).select_from(LessonProgress).join(Lesson).join(Course).where(
         LessonProgress.user_id == user_id, LessonProgress.status == "completed", Course.level == "beginner")) or 0
     days = list(db.scalars(select(ActivityDay.day).where(ActivityDay.user_id == user_id)))
+    proj = project_progress(db, user_id)
+    done_projects = sum(1 for p in proj.values() if p["total"] and p["solved"] == p["total"])
     checks = {
         "first_query": ran_query > 0 or total_correct > 0,
         "first_correct": total_correct >= 1,
@@ -95,6 +113,8 @@ def evaluate_achievements(db: Session, user_id: int) -> list[str]:
         "data_builder": by_type.get("dml", 0) >= 3,
         "streak_7": compute_streak(days, today_local()) >= 7,
         "sql_professional": user_points(db, user_id) >= 1000,
+        "real_world_analyst": done_projects >= 1,
+        "project_master": bool(proj) and done_projects == len(proj),
     }
     new = [k for k, ok in checks.items() if ok and k not in have]
     for k in new:
@@ -106,9 +126,11 @@ def dashboard(db: Session, user_id: int) -> dict:
     total_lessons = db.scalar(select(func.count()).select_from(Lesson)) or 0
     done_lessons = db.scalar(select(func.count()).select_from(LessonProgress).where(
         LessonProgress.user_id == user_id, LessonProgress.status == "completed")) or 0
-    total_ex = db.scalar(select(func.count()).select_from(Exercise)) or 0
-    solved = db.scalar(select(func.count(distinct(Submission.exercise_id))).where(
-        Submission.user_id == user_id, Submission.is_correct)) or 0
+    total_ex = db.scalar(select(func.count()).select_from(Exercise).where(Exercise.project_id.is_(None))) or 0
+    solved = db.scalar(select(func.count(distinct(Submission.exercise_id))).join(Exercise, Exercise.id == Submission.exercise_id)
+                       .where(Submission.user_id == user_id, Submission.is_correct, Exercise.project_id.is_(None))) or 0
+    pp = project_progress(db, user_id)
+    projects_done = sum(1 for p in pp.values() if p["total"] and p["solved"] == p["total"])
     subs, correct = db.execute(select(func.count(), func.count().filter(Submission.is_correct)).where(
         Submission.user_id == user_id)).one()
     accuracy = round(100 * correct / subs, 1) if subs else None
@@ -176,6 +198,8 @@ def dashboard(db: Session, user_id: int) -> dict:
     return {
         "lessons": {"completed": done_lessons, "total": total_lessons},
         "exercises": {"solved": solved, "total": total_ex},
+        "projects": {"completed": projects_done, "total": len(pp),
+                     "tasks_solved": sum(p["solved"] for p in pp.values()), "tasks_total": sum(p["total"] for p in pp.values())},
         "submissions": {"total": subs, "correct": correct, "accuracy": accuracy},
         "streak": streak,
         "learning_seconds": total_seconds,

@@ -19,32 +19,20 @@ from sqlalchemy.orm import Session
 
 from app.content import COURSES, SAMPLE_DATABASES
 from app.content.exercises import ALL as EXERCISES
+from app.content.projects import PROJECTS
 from app.content.model import POINTS
 from app.db import SessionLocal
-from app.models import Achievement, Course, Exercise, Lesson, SampleDatabase, User
+from app.models import Achievement, Course, Exercise, Lesson, Project, SampleDatabase, User
 from app.security import hash_password
 from app.services.progress import ACHIEVEMENTS
-from app.services.sandbox.base import ExecutionResult
+from app.services.content import ContentError, compute_expected, run_example
 from app.services.sandbox.postgres import SYSTEM_USER_ID, get_sandbox
 
 log = logging.getLogger("seed")
-PREVIEW_ROWS = 10
 
 
 class SeedError(RuntimeError):
     pass
-
-
-def _preview(r: ExecutionResult) -> dict:
-    last = r.last_rows
-    out = {"ok": r.ok, "exec_ms": r.exec_ms,
-           "commands": [rs.command for rs in r.result_sets]}
-    if last:
-        out.update(columns=[asdict(c) for c in last.columns], rows=last.rows[:PREVIEW_ROWS],
-                   row_count=last.row_count, truncated=last.truncated or last.row_count > PREVIEW_ROWS)
-    if r.error:
-        out["error"] = {"message": r.error.message, "detail": r.error.detail, "sqlstate": r.error.sqlstate}
-    return out
 
 
 def validate_content() -> None:
@@ -57,10 +45,14 @@ def validate_content() -> None:
             missing = [r for r in lesson.related if r not in known]
             if missing:
                 raise SeedError(f"lesson {lesson.slug}: unknown related slugs {missing}")
-    codes = [e.code for e in EXERCISES]
+    all_ex = EXERCISES + [t for p in PROJECTS for t in p.tasks]
+    codes = [e.code for e in all_ex]
     if len(codes) != len(set(codes)):
         raise SeedError("duplicate exercise codes")
-    for e in EXERCISES:
+    for p in PROJECTS:
+        if any(t.project != p.slug for t in p.tasks):
+            raise SeedError(f"project {p.slug}: every task must set project='{p.slug}'")
+    for e in all_ex:
         if len(e.hints) != 3:
             raise SeedError(f"{e.code}: must have exactly 3 hints")
         if e.lesson and e.lesson not in known:
@@ -99,15 +91,16 @@ def seed(db: Session, rebuild: bool = False) -> None:
             examples = []
             for ex in ldef.examples:
                 db_key = ex.db or ldef.db
-                if ex.writable:
-                    res = sb.execute_on_fresh_copy(SYSTEM_USER_ID, db_key, ex.sql)
-                else:
-                    res = sb.execute(sb.readonly_target(db_key), ex.sql)
-                if not res.ok and res.error and res.error.kind in ("internal", "limit"):
-                    raise SeedError(f"lesson {ldef.slug} example '{ex.title}' failed: {res.error.message}")
+                try:
+                    result = run_example(db_key, ex.sql, ex.writable)
+                except ContentError as e:
+                    raise SeedError(f"lesson {ldef.slug} example '{ex.title}': {e}") from None
                 examples.append({"title": ex.title, "sql": ex.sql, "explain": ex.explain, "db": db_key,
-                                 "writable": ex.writable, "result": _preview(res)})
+                                 "writable": ex.writable, "result": result})
             lesson = db.scalar(select(Lesson).where(Lesson.slug == ldef.slug)) or Lesson(slug=ldef.slug)
+            if lesson.admin_edited:  # edited in the Admin Panel — the database copy wins
+                lesson_ids[ldef.slug] = lesson.id
+                continue
             lesson.course_id, lesson.title, lesson.summary = course.id, ldef.title, ldef.summary
             lesson.objectives, lesson.content_md = ldef.objectives, ldef.content.strip()
             lesson.examples = examples
@@ -117,31 +110,48 @@ def seed(db: Session, rebuild: bool = False) -> None:
             db.flush()
             lesson_ids[ldef.slug] = lesson.id
         log.info("course %s: %d lessons", cdef.slug, len(cdef.lessons))
-    db.execute(delete(Lesson).where(Lesson.slug.not_in(list(lesson_ids))))
+    db.execute(delete(Lesson).where(Lesson.slug.not_in(list(lesson_ids)), Lesson.is_custom.is_(False),
+                                    Lesson.admin_edited.is_(False)))
+
+    project_ids: dict[str, int] = {}
+    for i, pdef in enumerate(PROJECTS):
+        proj = db.scalar(select(Project).where(Project.slug == pdef.slug)) or Project(slug=pdef.slug)
+        if not proj.admin_edited:
+            proj.title, proj.role, proj.summary, proj.brief_md = pdef.title, pdef.role, pdef.summary, pdef.brief.strip()
+            proj.deliverables, proj.sample_db, proj.difficulty, proj.position = pdef.deliverables, pdef.db, pdef.difficulty, i
+        db.add(proj)
+        db.flush()
+        project_ids[pdef.slug] = proj.id
+    db.execute(delete(Project).where(Project.slug.not_in(list(project_ids)), Project.is_custom.is_(False),
+                                     Project.admin_edited.is_(False)))
 
     failures = []
-    for pos, xdef in enumerate(EXERCISES):
-        if xdef.check_type == "dml":
-            res = sb.execute_on_fresh_copy(SYSTEM_USER_ID, xdef.db, xdef.solution, xdef.check_sql)
-        else:
-            res = sb.execute(sb.readonly_target(xdef.db), xdef.solution)
-        last = res.last_rows
-        if not res.ok or last is None or last.truncated:
-            failures.append(f"{xdef.code}: {res.error.message if res.error else 'no result set / truncated'}")
+    task_pos = {t.code: i for p in PROJECTS for i, t in enumerate(p.tasks)}
+    for pos, xdef in enumerate(EXERCISES + [t for p in PROJECTS for t in p.tasks]):
+        existing = db.scalar(select(Exercise).where(Exercise.code == xdef.code))
+        if existing is not None and existing.admin_edited:
             continue
-        ex = db.scalar(select(Exercise).where(Exercise.code == xdef.code)) or Exercise(code=xdef.code)
+        try:
+            expected = compute_expected(xdef.db, xdef.check_type, xdef.solution, xdef.check_sql)
+        except ContentError as e:
+            failures.append(f"{xdef.code}: {e}")
+            continue
+        ex = existing or Exercise(code=xdef.code)
         ex.title, ex.description_md, ex.difficulty, ex.category = xdef.title, xdef.description.strip(), xdef.difficulty, xdef.category
         ex.points, ex.sample_db, ex.check_type = POINTS[xdef.difficulty], xdef.db, xdef.check_type
         ex.solution_sql, ex.check_sql, ex.order_matters = xdef.solution.strip(), xdef.check_sql, xdef.order_matters
         ex.check_column_names = xdef.check_column_names
-        ex.expected = {"columns": [asdict(c) for c in last.columns], "rows": last.rows}
+        ex.expected = expected
         ex.hints, ex.explanation_md = xdef.hints, xdef.explanation
         ex.lesson_id = lesson_ids.get(xdef.lesson) if xdef.lesson else None
-        ex.position = pos
+        ex.project_id = project_ids.get(xdef.project) if xdef.project else None
+        ex.position = task_pos.get(xdef.code, pos)
         db.add(ex)
     if failures:
         raise SeedError("exercise solutions failed:\n  " + "\n  ".join(failures))
-    db.execute(delete(Exercise).where(Exercise.code.not_in([e.code for e in EXERCISES])))
+    seeded_codes = [e.code for e in EXERCISES] + [t.code for p in PROJECTS for t in p.tasks]
+    db.execute(delete(Exercise).where(Exercise.code.not_in(seeded_codes), Exercise.is_custom.is_(False),
+                                      Exercise.admin_edited.is_(False)))
 
     admin_email, admin_pw = os.getenv("ADMIN_EMAIL"), os.getenv("ADMIN_PASSWORD")
     if admin_email and admin_pw:
@@ -150,7 +160,8 @@ def seed(db: Session, rebuild: bool = False) -> None:
             db.add(User(email=admin_email.lower(), display_name="Admin", password_hash=hash_password(admin_pw), role="admin"))
             log.info("created admin user %s", admin_email)
     db.commit()
-    log.info("seed complete: %d lessons, %d exercises", len(lesson_ids), len(EXERCISES))
+    log.info("seed complete: %d lessons, %d exercises, %d projects (%d tasks)", len(lesson_ids), len(EXERCISES),
+             len(PROJECTS), len(task_pos))
 
 
 def main() -> None:

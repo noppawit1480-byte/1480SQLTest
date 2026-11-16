@@ -5,7 +5,7 @@ test("new learner sees a zeroed dashboard (no fake numbers)", async ({ page }) =
   await registerNewUser(page);
   const stats = page.getByTestId("stats");
   await expect(stats).toContainText("0/62");
-  await expect(stats).toContainText("0/70");
+  await expect(stats).toContainText(/โจทย์ที่ทำสำเร็จ\s*0\//);
   await expect(page.getByTestId("level-name")).toHaveText("Novice");
 });
 
@@ -60,7 +60,7 @@ test("practice: hints, incorrect then correct submission updates progress", asyn
   await expect(page.getByTestId("feedback")).toContainText("+20 pts");
 
   await page.goto("/dashboard");
-  await expect(page.getByTestId("stats")).toContainText("1/70");
+  await expect(page.getByTestId("stats")).toContainText(/โจทย์ที่ทำสำเร็จ\s*1\//);
   await expect(page.getByTestId("stats")).toContainText("50%");
   await expect(page.getByTestId("achievements")).toContainText("First Blood");
 });

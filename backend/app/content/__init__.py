@@ -22,4 +22,5 @@ SAMPLE_DATABASES = [
     ("banking", "Banking", "ธนาคาร: ลูกค้า บัญชี ธุรกรรม (ยอดบวก/ลบ) และสินเชื่อ"),
     ("hospital", "Hospital", "โรงพยาบาล: ผู้ป่วย แพทย์ นัดหมาย และการรักษา"),
     ("music_store", "Music Store", "ร้านขายเพลงดิจิทัล: ศิลปิน อัลบั้ม เพลง เพลย์ลิสต์ ใบแจ้งหนี้ และรายการขาย"),
+    ("saas", "SaaS Analytics (Advanced)", "ธุรกิจซอฟต์แวร์แบบสมาชิก: แพ็กเกจ บริษัทลูกค้า ผู้ใช้ ประวัติ subscription (MRR) ใบแจ้งหนี้ และ event stream แบบ JSONB ~43,000 แถว — สำหรับ retention, churn, cohort และ JSON"),
 ]

@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 
 from app.config import get_settings
 from app.db import get_db
-from app.models import Exercise, Lesson, Submission, User
+from app.models import Exercise, Lesson, Project, Submission, User
 from app.ratelimit import check_rate
 from app.schemas import SqlIn
 from app.security import get_current_user, get_optional_user
@@ -28,23 +28,26 @@ def _get(db: Session, code: str) -> Exercise:
     return ex
 
 
-def _ordered_codes(db: Session) -> list[str]:
-    rows = db.execute(select(Exercise.code, Exercise.difficulty, Exercise.position)).all()
-    return [c for c, _, _ in sorted(rows, key=lambda r: (DIFF_ORDER[r[1]], r[2]))]
+def _ordered_codes(db: Session, ex: Exercise) -> list[str]:
+    """Prev/next navigation: within the same project, or across the general practice set."""
+    if ex.project_id is not None:
+        return list(db.scalars(select(Exercise.code).where(Exercise.project_id == ex.project_id).order_by(Exercise.position)))
+    rows = db.execute(select(Exercise.code, Exercise.difficulty, Exercise.position).where(Exercise.project_id.is_(None))).all()
+    return [c for c, _, _ in sorted(rows, key=lambda r: (DIFF_ORDER.get(r[1], 9), r[2]))]
 
 
 @router.get("")
 def list_exercises(difficulty: str | None = None, category: str | None = None, db: Session = Depends(get_db),
                    user: User | None = Depends(get_optional_user)):
-    q = select(Exercise)
+    q = select(Exercise).where(Exercise.project_id.is_(None))  # project tasks live under /projects
     if difficulty:
         q = q.where(Exercise.difficulty == difficulty)
     if category:
         q = q.where(Exercise.category == category)
     solved = progress.solved_exercise_ids(db, user.id) if user else set()
     attempted = progress.attempted_exercise_ids(db, user.id) if user else set()
-    items = sorted(db.scalars(q), key=lambda e: (DIFF_ORDER[e.difficulty], e.position))
-    cats = sorted(set(db.scalars(select(Exercise.category).distinct())))
+    items = sorted(db.scalars(q), key=lambda e: (DIFF_ORDER.get(e.difficulty, 9), e.position))
+    cats = sorted(set(db.scalars(select(Exercise.category).where(Exercise.project_id.is_(None)).distinct())))
     return {
         "categories": cats,
         "items": [{"code": e.code, "title": e.title, "difficulty": e.difficulty, "category": e.category,
@@ -57,9 +60,10 @@ def list_exercises(difficulty: str | None = None, category: str | None = None, d
 @router.get("/{code}")
 def get_exercise(code: str, db: Session = Depends(get_db), user: User | None = Depends(get_optional_user)):
     ex = _get(db, code)
-    codes = _ordered_codes(db)
+    codes = _ordered_codes(db, ex)
     i = codes.index(ex.code)
     lesson = db.get(Lesson, ex.lesson_id) if ex.lesson_id else None
+    project = db.get(Project, ex.project_id) if ex.project_id else None
     exp = ex.expected or {}
     status_ = "new"
     attempts = 0
@@ -78,6 +82,7 @@ def get_exercise(code: str, db: Session = Depends(get_db), user: User | None = D
                      "row_count": len(exp.get("rows", []))},
         "hints": ex.hints,
         "lesson": {"slug": lesson.slug, "title": lesson.title, "course_slug": lesson.course.slug} if lesson else None,
+        "project": {"slug": project.slug, "title": project.title, "task_no": i + 1, "task_count": len(codes)} if project else None,
         "prev": codes[i - 1] if i > 0 else None, "next": codes[i + 1] if i + 1 < len(codes) else None,
         "status": status_, "attempts": attempts,
     }

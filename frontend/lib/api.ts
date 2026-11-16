@@ -32,6 +32,7 @@ export const api = {
   get: <T>(path: string) => request<T>("GET", path),
   post: <T>(path: string, body?: unknown) => request<T>("POST", path, body ?? {}),
   put: <T>(path: string, body?: unknown) => request<T>("PUT", path, body ?? {}),
+  patch: <T>(path: string, body?: unknown) => request<T>("PATCH", path, body ?? {}),
   del: <T>(path: string) => request<T>("DELETE", path),
 };
 
@@ -46,4 +47,6 @@ export const ACHIEVEMENT_TITLES: Record<string, string> = {
   data_builder: "Data Builder",
   streak_7: "7-Day Streak",
   sql_professional: "SQL Professional",
+  real_world_analyst: "Real-World Analyst",
+  project_master: "Project Master",
 };

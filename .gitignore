@@ -8,3 +8,4 @@ node_modules/
 frontend/public/monaco/
 frontend/test-results/
 frontend/playwright-report/
+zz-ca.crt

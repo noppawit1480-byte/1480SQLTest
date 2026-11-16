@@ -29,10 +29,30 @@ docker compose down        # หยุด (ข้อมูลยังอยู�
 docker compose down -v     # หยุดและลบข้อมูลทั้งหมด
 ```
 
+### เปิดใช้ AI ของ SQL Learning Assistant (ไม่บังคับ)
+ผู้ช่วยแบบวิเคราะห์อัตโนมัติ (Explain / Review / Optimize / Fix / Explain Error) ทำงานได้ทันทีโดยไม่ต้องตั้งค่าอะไร
+ถ้าต้องการ AI Tutor, การสร้างโจทย์ และคำอธิบายเสริม ให้ใส่ใน `.env`:
+```
+ANTHROPIC_API_KEY=sk-ant-...        # อยู่ฝั่ง server เท่านั้น ไม่ถูกส่งไป browser
+ASSISTANT_PROVIDER=auto             # auto | anthropic | none
+ASSISTANT_MODEL=claude-opus-5-5
+ASSISTANT_AI_DAILY_LIMIT=60         # ครั้ง/ผู้ใช้/วัน
+```
+แล้ว `docker compose up -d backend` · ตรวจสถานะที่ `GET /api/assistant/status`
+เปลี่ยนผู้ให้บริการได้โดยเพิ่ม class ที่ implement `LLMProvider` ใน `backend/app/services/assistant/llm.py` แล้วลงทะเบียนใน `PROVIDERS`
+
+### สร้างผู้ดูแลระบบ (Admin)
+ตั้ง `ADMIN_EMAIL` และ `ADMIN_PASSWORD` ใน `.env` ก่อน start ครั้งแรก (seed จะสร้างบัญชี role `admin`) หรือเลื่อนสิทธิ์บัญชีที่มีอยู่:
+```bash
+docker compose exec main-db psql -U sqlab -d sqlab -c "UPDATE users SET role='admin' WHERE email='you@example.com'"
+```
+หลังจากนั้นแอดมินจัดการ role ของคนอื่นได้จากหน้า Admin → ผู้ใช้
+
 ### Production checklist
 - ใส่ reverse proxy (Caddy/Nginx) ทำ HTTPS แล้วตั้ง `COOKIE_SECURE=true`
 - ใช้ secret ที่ยาวและสุ่มทุกตัว; อย่า commit `.env`
 - ปรับ `cpus`/`mem_limit` ของ `sandbox-db` ตามจำนวนผู้ใช้
+- ถ้าเปิด AI: backend ต้องออก HTTPS ไปยัง `api.anthropic.com` ได้ (network `web`) — sandbox ยังคงอยู่ใน network ภายในที่ไม่มี internet
 - สำรองข้อมูลเฉพาะ volume `main-data` (sandbox สร้างใหม่ได้ทั้งหมดด้วย seed)
 - ถ้า scale backend หลาย instance: เปลี่ยน rate limiter เป็น Redis (`app/ratelimit.py` มี interface เดียว) — การสร้าง/รีเซ็ต DB ใช้ PostgreSQL advisory lock จึงปลอดภัยข้าม instance อยู่แล้ว
 

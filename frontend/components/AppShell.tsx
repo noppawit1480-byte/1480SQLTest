@@ -4,23 +4,25 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import {
-  BookOpen, Database, Dumbbell, FolderKanban, LayoutDashboard, LogIn, LogOut, Menu, Moon, Sun, Terminal, User, X,
+  BookOpen, Bot, Database, Shield, Dumbbell, FolderKanban, LayoutDashboard, LogIn, LogOut, Menu, Moon, Sun, Terminal, User, X,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth, useTheme } from "./providers";
 import { cx } from "./ui";
 
-const NAV = [
+const NAV: { href: string; label: string; icon: typeof BookOpen; auth?: boolean; admin?: boolean; badge?: string }[] = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard, auth: true },
   { href: "/learn", label: "บทเรียน", icon: BookOpen },
   { href: "/playground", label: "Playground", icon: Terminal },
   { href: "/practice", label: "แบบฝึกหัด", icon: Dumbbell },
+  { href: "/assistant", label: "Assistant", icon: Bot },
   { href: "/databases", label: "Databases", icon: Database },
-  { href: "/projects", label: "Projects", icon: FolderKanban, badge: "Phase 2" },
+  { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/profile", label: "โปรไฟล์", icon: User, auth: true },
+  { href: "/admin", label: "Admin", icon: Shield, auth: true, admin: true },
 ];
 
-const FULL_BLEED = ["/playground", "/practice/"];
+const FULL_BLEED = ["/playground", "/practice/", "/assistant/practice/"];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -39,7 +41,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   const nav = (
     <nav className="flex flex-col gap-0.5 p-3" aria-label="เมนูหลัก">
-      {NAV.filter((n) => !n.auth || user).map((n) => {
+      {NAV.filter((n) => (!n.auth || user) && (!n.admin || user?.role === "admin")).map((n) => {
         const active = pathname === n.href || pathname.startsWith(n.href + "/");
         return (
           <Link key={n.href} href={n.href} onClick={() => setOpen(false)}

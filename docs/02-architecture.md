@@ -48,13 +48,15 @@ backend/app
 ├── security.py          # password hashing (argon2), session tokens, RBAC deps
 ├── ratelimit.py         # token-bucket rate limiter
 ├── routers/             # HTTP layer เท่านั้น (บาง)
-│   auth · me (dashboard, heartbeat, library) · learn (courses, lessons) · practice · playground (+ databases, saved queries)
+│   auth · me · learn · practice · projects · playground (+ databases, saved queries) · assistant · admin
 ├── services/            # business logic (ไม่รู้จัก HTTP)
 │   ├── sandbox/         # base.py (EngineAdapter protocol, result types) + postgres.py (executor + provisioning)
 │   ├── checker.py       # result-based answer checking (pure functions → unit-testable)
 │   ├── validator.py     # libpg_query syntax validation
 │   ├── sql_split.py     # statement splitting with source offsets
-│   └── progress.py      # activity, streak, level, accuracy, achievements, dashboard
+│   ├── progress.py      # activity, streak, level, accuracy, achievements, projects, dashboard
+│   ├── content.py       # run examples / compute expected results (seeder + admin)
+│   └── assistant/       # rules.py (pglast + EXPLAIN), llm.py (LLMProvider), service.py
 ├── content/             # lessons + exercises (content-as-code)
 ├── sample_dbs/          # generator + generated *.sql ของ 5 sample databases
 └── seed.py              # provision sandbox + seed content
@@ -104,7 +106,35 @@ Router/Checker ใช้ผ่าน interface นี้ (ปัจจุบั�
    - **Rows**: ถ้า `order_matters` → เทียบตามลำดับ; ไม่เช่นนั้นเทียบแบบ **multiset** (`Counter`) — ทำให้แถวซ้ำมีผล (DISTINCT ผิด/ถูกจับได้)
 4. คืน `CheckResult{correct, reason_code, message_th, details}` เช่น `ROW_COUNT_MISMATCH`, `COLUMN_MISMATCH`, `VALUE_MISMATCH` (+ แถวตัวอย่างที่หาย/เกิน), `ORDER_MISMATCH`
 
-## 5. Frontend architecture
+## 5. SQL Learning Assistant (Phase 2)
+
+```mermaid
+flowchart LR
+  UI[Assistant panel / Tutor / Generate] --> API["/api/assistant/*"]
+  API --> R["rules.py<br/>pglast AST + EXPLAIN (FORMAT JSON)"]
+  API -->|use_ai, tutor, generate| L["llm.py — LLMProvider<br/>(Anthropic Claude | Null)"]
+  R --> SB[(read-only sandbox)]
+  L -->|context: schema, learner level,<br/>exercise text — never the solution| P[(AI provider)]
+  API -->|generated solution must run| SB
+```
+| หลักการ | การบังคับใช้ |
+|---|---|
+| AI เป็นตัวเสริม | ทุกโหมดวิเคราะห์ทำงานด้วย rules ก่อน; AI เพิ่มเฉพาะ `ai_md` · การตรวจคำตอบไม่ผ่าน AI |
+| ไม่เฉลยเมื่อผู้เรียนขอคำใบ้ | ใน context ของแบบฝึกหัด prompt ไม่มีเฉลยเลย + คำสั่ง hint-only (มี integration test ยืนยันว่าเฉลยไม่หลุดเข้า prompt) |
+| เปลี่ยนผู้ให้บริการได้ | `LLMProvider` protocol + `PROVIDERS` registry + env `ASSISTANT_PROVIDER` |
+| Key ไม่ถึง frontend | อ่านจาก env ฝั่ง backend เท่านั้น; frontend เห็นแค่ `/assistant/status` |
+| ควบคุมค่าใช้จ่าย | ต้อง login, rate limit ต่อนาที, โควตารายวันจาก `assistant_logs`, effort ต่ำสำหรับแชต |
+| โจทย์ที่ AI สร้างเชื่อถือได้ | ต้องเป็น SELECT เดียว (pglast), รันผ่าน, 1–200 แถว — expected มาจากการรันจริง; ไม่ผ่านให้ AI แก้ 1 ครั้งพร้อมเหตุผล |
+| Refusal | ใช้ server-side fallback (`fallbacks: "default"`) และแปลง `stop_reason: refusal` เป็นข้อความที่เข้าใจได้ |
+
+## 6. Admin Panel & content governance (Phase 2)
+- `APIRouter(dependencies=[Depends(require_role("admin"))])` — ทุก route ของ `/api/admin` ถูกบังคับ RBAC ที่ระดับ router
+- เนื้อหาที่บันทึกผ่าน Admin ใช้ `services/content.py` ชุดเดียวกับ seeder: ตัวอย่างและเฉลยถูก **รันจริง** ก่อนบันทึก
+- `is_custom` (สร้างใน Admin) / `admin_edited` (แก้ใน Admin) → seeder ข้ามแถวเหล่านี้ ไม่ทับและไม่ลบ; `revert` คืนบทให้ content-as-code
+- `PostgresSandbox.provision_one(key, force=True)` rebuild DB เดียว แล้วคำนวณ expected ของโจทย์บน DB นั้นใหม่
+- Audit: `event=admin_action admin=… action=… target=…`
+
+## 7. Frontend architecture
 - **Next.js App Router** (`app/`), client components เฉพาะที่ interactive
 - `lib/api.ts` — typed fetch wrapper (`credentials: 'include'`), error เป็น `ApiError`
 - `lib/types.ts` — TypeScript types สะท้อน Pydantic schemas
@@ -112,7 +142,7 @@ Router/Checker ใช้ผ่าน interface นี้ (ปัจจุบั�
 - Theme: class-based dark mode (`next-themes`-free, localStorage + `prefers-color-scheme`)
 - Monaco โหลดจาก npm package (`loader.config({ monaco })`) — ไม่พึ่ง CDN
 
-## 6. Deployment (Docker Compose)
+## 8. Deployment (Docker Compose)
 | Service | Image | Network | Notes |
 |---|---|---|---|
 | `main-db` | postgres:16 | `backend` | volume `main-data` |
@@ -120,6 +150,6 @@ Router/Checker ใช้ผ่าน interface นี้ (ปัจจุบั�
 | `backend` | python:3.13-slim | `backend`, `sandbox`, `web` | รัน `alembic upgrade head` + `python -m app.seed` ก่อน `uvicorn` |
 | `frontend` | node:22 | `web` | `BACKEND_URL=http://backend:8000` |
 
-## 7. Observability
+## 9. Observability
 - ทุก request มี `X-Request-ID`; log JSON line: `event=sql_exec user=… db=… mode=… ms=… rows=… status=ok|error|timeout`
 - Exception handler กลาง: ซ่อน stack trace จากผู้ใช้, log ฝั่ง server
