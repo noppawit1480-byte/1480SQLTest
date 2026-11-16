@@ -1,0 +1,10 @@
+.env
+*.pyc
+__pycache__/
+.venv/
+.pytest_cache/
+node_modules/
+.next/
+frontend/public/monaco/
+frontend/test-results/
+frontend/playwright-report/

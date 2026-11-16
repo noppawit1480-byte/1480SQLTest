@@ -1,0 +1,98 @@
+# SQLab — SQL Learning & Practice Platform
+#   cp .env.example .env   (edit secrets)
+#   docker compose up -d --build
+#   open http://localhost:3000
+#
+# Network layout (see docs/02-architecture.md):
+#   web      — browser-facing; frontend <-> backend
+#   core     — internal; backend <-> main-db
+#   sandbox  — internal (no internet); backend <-> sandbox-db
+# The sandbox cluster that runs learner SQL never shares a server, network or credentials with main-db.
+
+name: sqlab
+
+services:
+  main-db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${MAIN_DB_USER:-sqlab}
+      POSTGRES_PASSWORD: ${MAIN_DB_PASSWORD:?set MAIN_DB_PASSWORD in .env}
+      POSTGRES_DB: ${MAIN_DB_NAME:-sqlab}
+    volumes: [main-data:/var/lib/postgresql/data]
+    networks: [core]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      retries: 20
+
+  sandbox-db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${SANDBOX_ADMIN_PASSWORD:?set SANDBOX_ADMIN_PASSWORD in .env}
+      POSTGRES_INITDB_ARGS: --auth-host=scram-sha-256
+    # hard resource ceilings for everything learners run
+    command: >
+      postgres
+      -c max_connections=200
+      -c shared_buffers=128MB
+      -c statement_timeout=10s
+      -c idle_in_transaction_session_timeout=15s
+      -c temp_file_limit=256MB
+      -c log_min_duration_statement=2000
+    cpus: 1.0
+    mem_limit: 1g
+    pids_limit: 300
+    volumes: [sandbox-data:/var/lib/postgresql/data]
+    networks: [sandbox]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      retries: 20
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      main-db: { condition: service_healthy }
+      sandbox-db: { condition: service_healthy }
+    environment:
+      ENV: production
+      DATABASE_URL: postgresql+psycopg://${MAIN_DB_USER:-sqlab}:${MAIN_DB_PASSWORD}@main-db:5432/${MAIN_DB_NAME:-sqlab}
+      SANDBOX_HOST: sandbox-db
+      SANDBOX_PORT: 5432
+      SANDBOX_ADMIN_USER: postgres
+      SANDBOX_ADMIN_PASSWORD: ${SANDBOX_ADMIN_PASSWORD}
+      SANDBOX_READER_PASSWORD: ${SANDBOX_READER_PASSWORD:?set SANDBOX_READER_PASSWORD in .env}
+      SANDBOX_ROLE_SECRET: ${SANDBOX_ROLE_SECRET:?set SANDBOX_ROLE_SECRET in .env}
+      COOKIE_SECURE: ${COOKIE_SECURE:-false}
+      QUERY_TIMEOUT_MS: ${QUERY_TIMEOUT_MS:-5000}
+      MAX_RESULT_ROWS: ${MAX_RESULT_ROWS:-1000}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
+    networks: [web, core, sandbox]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 10s
+      start_period: 60s
+      retries: 10
+
+  frontend:
+    build:
+      context: ./frontend
+      args: { BACKEND_URL: "http://backend:8000" }
+    restart: unless-stopped
+    depends_on:
+      backend: { condition: service_healthy }
+    ports: ["${WEB_PORT:-3000}:3000"]
+    networks: [web]
+
+networks:
+  web: {}
+  core: { internal: true }
+  sandbox: { internal: true }
+
+volumes:
+  main-data: {}
+  sandbox-data: {}
