@@ -206,7 +206,7 @@ def test_validate_endpoint(anon):
 
 def test_databases_and_er(anon):
     dbs = anon.get("/api/databases").json()
-    assert {d["key"] for d in dbs} == {"ecommerce", "hr", "banking", "hospital", "music_store"}
+    assert {d["key"] for d in dbs} == {"ecommerce", "hr", "banking", "hospital", "music_store", "saas"}
     hr = anon.get("/api/databases/hr").json()
     assert "employees |o--o{ employees" in hr["er_mermaid"]
     assert anon.get("/api/databases/hr/tables/employees/preview").json()["result_sets"][0]["row_count"] > 0
@@ -221,3 +221,10 @@ def test_concurrent_first_use_of_writable_db(user_client):
         futs += [pool.submit(user_client.post, "/api/playground/execute",
                              json={"db_key": "banking", "mode": "writable", "sql": "SELECT 1"}) for _ in range(3)]
         assert [f.result().status_code for f in futs] == [200] * 6
+
+
+def test_zero_row_select_keeps_column_headers(anon):
+    d = execute(anon, "SELECT id, name FROM products WHERE false")
+    rs = d["result_sets"][0]
+    assert d["ok"] and rs["row_count"] == 0 and [c["name"] for c in rs["columns"]] == ["id", "name"]
+    assert rs["command"] == "SELECT 0"

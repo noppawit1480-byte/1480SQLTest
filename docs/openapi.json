@@ -587,7 +587,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/SqlIn"
+        "$ref": "#/components/schemas/app__schemas__SqlIn"
        }
       }
      }
@@ -637,7 +637,7 @@
      "content": {
       "application/json": {
        "schema": {
-        "$ref": "#/components/schemas/SqlIn"
+        "$ref": "#/components/schemas/app__schemas__SqlIn"
        }
       }
      }
@@ -679,6 +679,65 @@
       "schema": {
        "type": "string",
        "title": "Code"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects": {
+   "get": {
+    "tags": [
+     "projects"
+    ],
+    "summary": "List Projects",
+    "operationId": "list_projects_api_projects_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/projects/{slug}": {
+   "get": {
+    "tags": [
+     "projects"
+    ],
+    "summary": "Get Project",
+    "operationId": "get_project_api_projects__slug__get",
+    "parameters": [
+     {
+      "name": "slug",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Slug"
       }
      }
     ],
@@ -1141,6 +1200,1352 @@
     }
    }
   },
+  "/api/assistant/status": {
+   "get": {
+    "tags": [
+     "assistant"
+    ],
+    "summary": "Assistant Status",
+    "operationId": "assistant_status_api_assistant_status_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/assistant/analyze": {
+   "post": {
+    "tags": [
+     "assistant"
+    ],
+    "summary": "Analyze",
+    "operationId": "analyze_api_assistant_analyze_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AnalyzeIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/assistant/tutor": {
+   "post": {
+    "tags": [
+     "assistant"
+    ],
+    "summary": "Tutor",
+    "operationId": "tutor_api_assistant_tutor_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/TutorIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/assistant/recommendations": {
+   "get": {
+    "tags": [
+     "assistant"
+    ],
+    "summary": "Recommendations",
+    "operationId": "recommendations_api_assistant_recommendations_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/assistant/generate": {
+   "post": {
+    "tags": [
+     "assistant"
+    ],
+    "summary": "Generate",
+    "operationId": "generate_api_assistant_generate_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/GenerateIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/assistant/generated": {
+   "get": {
+    "tags": [
+     "assistant"
+    ],
+    "summary": "List Generated",
+    "operationId": "list_generated_api_assistant_generated_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/assistant/generated/{gid}": {
+   "get": {
+    "tags": [
+     "assistant"
+    ],
+    "summary": "Get Generated",
+    "operationId": "get_generated_api_assistant_generated__gid__get",
+    "parameters": [
+     {
+      "name": "gid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Gid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/assistant/generated/{gid}/solution": {
+   "get": {
+    "tags": [
+     "assistant"
+    ],
+    "summary": "Generated Solution",
+    "operationId": "generated_solution_api_assistant_generated__gid__solution_get",
+    "parameters": [
+     {
+      "name": "gid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Gid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/assistant/generated/{gid}/run": {
+   "post": {
+    "tags": [
+     "assistant"
+    ],
+    "summary": "Run Generated",
+    "operationId": "run_generated_api_assistant_generated__gid__run_post",
+    "parameters": [
+     {
+      "name": "gid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Gid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/app__routers__assistant__SqlIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/assistant/generated/{gid}/submit": {
+   "post": {
+    "tags": [
+     "assistant"
+    ],
+    "summary": "Submit Generated",
+    "description": "Checked exactly like official exercises; generated practice gives no points (it is self-study).",
+    "operationId": "submit_generated_api_assistant_generated__gid__submit_post",
+    "parameters": [
+     {
+      "name": "gid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Gid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/app__routers__assistant__SqlIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/stats": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Stats",
+    "operationId": "stats_api_admin_stats_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/users": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "List Users",
+    "operationId": "list_users_api_admin_users_get",
+    "parameters": [
+     {
+      "name": "q",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "",
+       "title": "Q"
+      }
+     },
+     {
+      "name": "page",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "integer",
+       "default": 1,
+       "title": "Page"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/users/{uid}": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "User Detail",
+    "operationId": "user_detail_api_admin_users__uid__get",
+    "parameters": [
+     {
+      "name": "uid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Uid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "patch": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Update User",
+    "operationId": "update_user_api_admin_users__uid__patch",
+    "parameters": [
+     {
+      "name": "uid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Uid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/UserPatch"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/courses": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Admin Courses",
+    "operationId": "admin_courses_api_admin_courses_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/courses/{cid}": {
+   "put": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Update Course",
+    "operationId": "update_course_api_admin_courses__cid__put",
+    "parameters": [
+     {
+      "name": "cid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Cid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CoursePatch"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/lessons/{lid}": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Get Lesson",
+    "operationId": "get_lesson_api_admin_lessons__lid__get",
+    "parameters": [
+     {
+      "name": "lid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Lid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Update Lesson",
+    "operationId": "update_lesson_api_admin_lessons__lid__put",
+    "parameters": [
+     {
+      "name": "lid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Lid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LessonIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Delete Lesson",
+    "operationId": "delete_lesson_api_admin_lessons__lid__delete",
+    "parameters": [
+     {
+      "name": "lid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Lid"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/lessons": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Create Lesson",
+    "operationId": "create_lesson_api_admin_lessons_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LessonIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/lessons/{lid}/revert": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Revert Lesson",
+    "description": "Hand a seeded lesson back to content-as-code: the next seed restores the version in Git.",
+    "operationId": "revert_lesson_api_admin_lessons__lid__revert_post",
+    "parameters": [
+     {
+      "name": "lid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Lid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/exercises": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Admin Exercises",
+    "operationId": "admin_exercises_api_admin_exercises_get",
+    "parameters": [
+     {
+      "name": "project",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Project"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Create Exercise",
+    "operationId": "create_exercise_api_admin_exercises_post",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ExerciseIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/exercises/{eid}": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Admin Exercise",
+    "operationId": "admin_exercise_api_admin_exercises__eid__get",
+    "parameters": [
+     {
+      "name": "eid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Eid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Update Exercise",
+    "operationId": "update_exercise_api_admin_exercises__eid__put",
+    "parameters": [
+     {
+      "name": "eid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Eid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ExerciseIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Delete Exercise",
+    "operationId": "delete_exercise_api_admin_exercises__eid__delete",
+    "parameters": [
+     {
+      "name": "eid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Eid"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/exercises/validate": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Validate Exercise",
+    "description": "Dry run: execute the solution and return the expected result without saving.",
+    "operationId": "validate_exercise_api_admin_exercises_validate_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ExerciseIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/projects": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Admin Projects",
+    "operationId": "admin_projects_api_admin_projects_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Create Project",
+    "operationId": "create_project_api_admin_projects_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProjectIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/projects/{pid}": {
+   "put": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Update Project",
+    "operationId": "update_project_api_admin_projects__pid__put",
+    "parameters": [
+     {
+      "name": "pid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Pid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ProjectIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Delete Project",
+    "operationId": "delete_project_api_admin_projects__pid__delete",
+    "parameters": [
+     {
+      "name": "pid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Pid"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/achievements": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Admin Achievements",
+    "operationId": "admin_achievements_api_admin_achievements_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/achievements/{key}": {
+   "put": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Update Achievement",
+    "operationId": "update_achievement_api_admin_achievements__key__put",
+    "parameters": [
+     {
+      "name": "key",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AchievementPatch"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/databases": {
+   "get": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Admin Databases",
+    "operationId": "admin_databases_api_admin_databases_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/databases/{key}": {
+   "put": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Update Database",
+    "operationId": "update_database_api_admin_databases__key__put",
+    "parameters": [
+     {
+      "name": "key",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Key"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DatabasePatch"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/databases/{key}/rebuild": {
+   "post": {
+    "tags": [
+     "admin"
+    ],
+    "summary": "Rebuild Database",
+    "description": "Rebuild the template + shared read-only copy, then recompute expected results of every exercise on\nit. Learners' writable sandboxes are not touched.",
+    "operationId": "rebuild_database_api_admin_databases__key__rebuild_post",
+    "parameters": [
+     {
+      "name": "key",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/health": {
    "get": {
     "summary": "Health",
@@ -1160,6 +2565,205 @@
  },
  "components": {
   "schemas": {
+   "AchievementPatch": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 2,
+      "title": "Title"
+     },
+     "description": {
+      "type": "string",
+      "maxLength": 500,
+      "minLength": 2,
+      "title": "Description"
+     },
+     "icon": {
+      "type": "string",
+      "pattern": "^[a-z][a-z-]{1,39}$",
+      "title": "Icon"
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "description",
+     "icon"
+    ],
+    "title": "AchievementPatch"
+   },
+   "AnalyzeIn": {
+    "properties": {
+     "mode": {
+      "type": "string",
+      "enum": [
+       "explain",
+       "review",
+       "explain_error",
+       "fix",
+       "optimize"
+      ],
+      "title": "Mode"
+     },
+     "sql": {
+      "type": "string",
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Sql"
+     },
+     "db_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,30}$",
+      "title": "Db Key",
+      "default": "ecommerce"
+     },
+     "error": {
+      "anyOf": [
+       {
+        "additionalProperties": true,
+        "type": "object"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     },
+     "exercise_code": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 20
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Exercise Code"
+     },
+     "use_ai": {
+      "type": "boolean",
+      "title": "Use Ai",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "mode",
+     "sql"
+    ],
+    "title": "AnalyzeIn"
+   },
+   "ChatMsg": {
+    "properties": {
+     "role": {
+      "type": "string",
+      "enum": [
+       "user",
+       "assistant"
+      ],
+      "title": "Role"
+     },
+     "content": {
+      "type": "string",
+      "maxLength": 8000,
+      "minLength": 1,
+      "title": "Content"
+     }
+    },
+    "type": "object",
+    "required": [
+     "role",
+     "content"
+    ],
+    "title": "ChatMsg"
+   },
+   "CoursePatch": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "maxLength": 120,
+      "minLength": 2,
+      "title": "Title"
+     },
+     "description": {
+      "type": "string",
+      "maxLength": 2000,
+      "minLength": 2,
+      "title": "Description"
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "description"
+    ],
+    "title": "CoursePatch"
+   },
+   "DatabasePatch": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 2,
+      "title": "Name"
+     },
+     "description": {
+      "type": "string",
+      "maxLength": 2000,
+      "minLength": 2,
+      "title": "Description"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "description"
+    ],
+    "title": "DatabasePatch"
+   },
+   "ExampleIn": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Title"
+     },
+     "sql": {
+      "type": "string",
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Sql"
+     },
+     "explain": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 30,
+      "title": "Explain"
+     },
+     "db": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,30}$",
+      "title": "Db"
+     },
+     "writable": {
+      "type": "boolean",
+      "title": "Writable",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "sql",
+     "db"
+    ],
+    "title": "ExampleIn"
+   },
    "ExecuteIn": {
     "properties": {
      "db_key": {
@@ -1189,6 +2793,179 @@
     ],
     "title": "ExecuteIn"
    },
+   "ExerciseIn": {
+    "properties": {
+     "code": {
+      "type": "string",
+      "pattern": "^[A-Z0-9][A-Z0-9-]{2,19}$",
+      "title": "Code"
+     },
+     "title": {
+      "type": "string",
+      "maxLength": 160,
+      "minLength": 2,
+      "title": "Title"
+     },
+     "description_md": {
+      "type": "string",
+      "maxLength": 20000,
+      "minLength": 2,
+      "title": "Description Md"
+     },
+     "difficulty": {
+      "type": "string",
+      "enum": [
+       "easy",
+       "medium",
+       "hard",
+       "expert"
+      ],
+      "title": "Difficulty"
+     },
+     "category": {
+      "type": "string",
+      "maxLength": 40,
+      "minLength": 2,
+      "title": "Category"
+     },
+     "points": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 500.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Points"
+     },
+     "sample_db": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,30}$",
+      "title": "Sample Db"
+     },
+     "check_type": {
+      "type": "string",
+      "enum": [
+       "select",
+       "dml"
+      ],
+      "title": "Check Type",
+      "default": "select"
+     },
+     "solution_sql": {
+      "type": "string",
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Solution Sql"
+     },
+     "check_sql": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 20000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Check Sql"
+     },
+     "order_matters": {
+      "type": "boolean",
+      "title": "Order Matters",
+      "default": false
+     },
+     "check_column_names": {
+      "type": "boolean",
+      "title": "Check Column Names",
+      "default": true
+     },
+     "hints": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 3,
+      "minItems": 3,
+      "title": "Hints"
+     },
+     "explanation_md": {
+      "type": "string",
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Explanation Md"
+     },
+     "lesson_slug": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Lesson Slug"
+     },
+     "project_slug": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Project Slug"
+     }
+    },
+    "type": "object",
+    "required": [
+     "code",
+     "title",
+     "description_md",
+     "difficulty",
+     "category",
+     "sample_db",
+     "solution_sql",
+     "hints",
+     "explanation_md"
+    ],
+    "title": "ExerciseIn"
+   },
+   "GenerateIn": {
+    "properties": {
+     "db_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,30}$",
+      "title": "Db Key",
+      "default": "ecommerce"
+     },
+     "topic": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 2,
+      "title": "Topic"
+     },
+     "difficulty": {
+      "type": "string",
+      "enum": [
+       "easy",
+       "medium",
+       "hard"
+      ],
+      "title": "Difficulty",
+      "default": "medium"
+     }
+    },
+    "type": "object",
+    "required": [
+     "topic"
+    ],
+    "title": "GenerateIn"
+   },
    "HTTPValidationError": {
     "properties": {
      "detail": {
@@ -1216,6 +2993,101 @@
      "seconds"
     ],
     "title": "HeartbeatIn"
+   },
+   "LessonIn": {
+    "properties": {
+     "course_slug": {
+      "type": "string",
+      "title": "Course Slug"
+     },
+     "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,78}$",
+      "title": "Slug"
+     },
+     "title": {
+      "type": "string",
+      "maxLength": 160,
+      "minLength": 2,
+      "title": "Title"
+     },
+     "summary": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 2,
+      "title": "Summary"
+     },
+     "objectives": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 20,
+      "title": "Objectives"
+     },
+     "content_md": {
+      "type": "string",
+      "maxLength": 100000,
+      "minLength": 1,
+      "title": "Content Md"
+     },
+     "examples": {
+      "items": {
+       "$ref": "#/components/schemas/ExampleIn"
+      },
+      "type": "array",
+      "maxItems": 12,
+      "title": "Examples"
+     },
+     "common_mistakes": {
+      "items": {
+       "$ref": "#/components/schemas/MistakeIn"
+      },
+      "type": "array",
+      "maxItems": 12,
+      "title": "Common Mistakes"
+     },
+     "related_slugs": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 12,
+      "title": "Related Slugs"
+     },
+     "sample_db": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{1,30}$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Sample Db"
+     },
+     "position": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Position"
+     }
+    },
+    "type": "object",
+    "required": [
+     "course_slug",
+     "slug",
+     "title",
+     "summary",
+     "content_md"
+    ],
+    "title": "LessonIn"
    },
    "LessonProgressIn": {
     "properties": {
@@ -1254,6 +3126,39 @@
     ],
     "title": "LoginIn"
    },
+   "MistakeIn": {
+    "properties": {
+     "title": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Title"
+     },
+     "wrong": {
+      "type": "string",
+      "maxLength": 5000,
+      "title": "Wrong"
+     },
+     "right": {
+      "type": "string",
+      "maxLength": 5000,
+      "title": "Right"
+     },
+     "why": {
+      "type": "string",
+      "maxLength": 2000,
+      "title": "Why"
+     }
+    },
+    "type": "object",
+    "required": [
+     "title",
+     "wrong",
+     "right",
+     "why"
+    ],
+    "title": "MistakeIn"
+   },
    "NoteIn": {
     "properties": {
      "body": {
@@ -1267,6 +3172,73 @@
      "body"
     ],
     "title": "NoteIn"
+   },
+   "ProjectIn": {
+    "properties": {
+     "slug": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{1,78}$",
+      "title": "Slug"
+     },
+     "title": {
+      "type": "string",
+      "maxLength": 160,
+      "minLength": 2,
+      "title": "Title"
+     },
+     "role": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 2,
+      "title": "Role"
+     },
+     "summary": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 2,
+      "title": "Summary"
+     },
+     "brief_md": {
+      "type": "string",
+      "maxLength": 50000,
+      "minLength": 2,
+      "title": "Brief Md"
+     },
+     "deliverables": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 20,
+      "title": "Deliverables"
+     },
+     "sample_db": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,30}$",
+      "title": "Sample Db"
+     },
+     "difficulty": {
+      "type": "string",
+      "enum": [
+       "easy",
+       "medium",
+       "hard",
+       "expert"
+      ],
+      "title": "Difficulty"
+     }
+    },
+    "type": "object",
+    "required": [
+     "slug",
+     "title",
+     "role",
+     "summary",
+     "brief_md",
+     "sample_db",
+     "difficulty"
+    ],
+    "title": "ProjectIn"
    },
    "RegisterIn": {
     "properties": {
@@ -1338,19 +3310,79 @@
     ],
     "title": "SavedQueryIn"
    },
-   "SqlIn": {
+   "TutorIn": {
     "properties": {
-     "sql": {
-      "type": "string",
-      "maxLength": 20000,
-      "title": "Sql"
+     "messages": {
+      "items": {
+       "$ref": "#/components/schemas/ChatMsg"
+      },
+      "type": "array",
+      "maxItems": 30,
+      "minItems": 1,
+      "title": "Messages"
+     },
+     "db_key": {
+      "anyOf": [
+       {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{1,30}$"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Db Key"
+     },
+     "exercise_code": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 20
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Exercise Code"
      }
     },
     "type": "object",
     "required": [
-     "sql"
+     "messages"
     ],
-    "title": "SqlIn"
+    "title": "TutorIn"
+   },
+   "UserPatch": {
+    "properties": {
+     "role": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "learner",
+         "admin"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role"
+     },
+     "is_active": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Is Active"
+     }
+    },
+    "type": "object",
+    "title": "UserPatch"
    },
    "ValidateIn": {
     "properties": {
@@ -1405,6 +3437,35 @@
      "type"
     ],
     "title": "ValidationError"
+   },
+   "app__routers__assistant__SqlIn": {
+    "properties": {
+     "sql": {
+      "type": "string",
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Sql"
+     }
+    },
+    "type": "object",
+    "required": [
+     "sql"
+    ],
+    "title": "SqlIn"
+   },
+   "app__schemas__SqlIn": {
+    "properties": {
+     "sql": {
+      "type": "string",
+      "maxLength": 20000,
+      "title": "Sql"
+     }
+    },
+    "type": "object",
+    "required": [
+     "sql"
+    ],
+    "title": "SqlIn"
    }
   }
  }

@@ -170,6 +170,7 @@ export interface ExerciseDetail {
   expected: { columns: ColumnInfo[]; rows: unknown[][]; row_count: number };
   hints: string[];
   lesson: NavLesson | null;
+  project: { slug: string; title: string; task_no: number; task_count: number } | null;
   prev: string | null;
   next: string | null;
   status: "new" | "attempted" | "solved";
@@ -201,6 +202,7 @@ export interface Achievement {
 export interface Dashboard {
   lessons: { completed: number; total: number };
   exercises: { solved: number; total: number };
+  projects: { completed: number; total: number; tasks_solved: number; tasks_total: number };
   submissions: { total: number; correct: number; accuracy: number | null };
   streak: number;
   learning_seconds: number;
@@ -237,4 +239,69 @@ export interface SyntaxIssue {
   line: number;
   column: number;
   end_column: number;
+}
+
+export interface ProjectSummary {
+  slug: string;
+  title: string;
+  role: string;
+  summary: string;
+  sample_db: string;
+  difficulty: Difficulty;
+  tasks: number;
+  solved: number;
+  completed: boolean;
+}
+
+export interface ProjectDetail {
+  slug: string;
+  title: string;
+  role: string;
+  summary: string;
+  brief_md: string;
+  deliverables: string[];
+  sample_db: string;
+  difficulty: Difficulty;
+  tasks: { code: string; title: string; difficulty: Difficulty; category: string; points: number; status: "new" | "attempted" | "solved" }[];
+  solved: number;
+  completed: boolean;
+  points_total: number;
+  points_earned: number;
+}
+
+export interface AssistantFinding {
+  code: string;
+  severity: "info" | "warning" | "danger" | "perf";
+  title: string;
+  body_md: string;
+  suggestion_sql: string | null;
+}
+
+export interface AssistantAnswer {
+  mode: string;
+  source: "rules" | "rules+ai";
+  summary: string;
+  sections: { title: string; body_md: string; sql: string | null }[];
+  findings: AssistantFinding[];
+  plan: { depth: number; node: string; relation: string | null; alias: string | null; index: string | null; rows: number; cost: number; filter: string | null }[] | null;
+  ai_md: string | null;
+}
+
+export interface AssistantStatus {
+  ai_available: boolean;
+  provider: string;
+  model: string;
+}
+
+export interface GeneratedPractice {
+  id: number;
+  db_key: string;
+  topic: string;
+  title: string;
+  description_md: string;
+  hints: string[];
+  order_matters: boolean;
+  solved: boolean;
+  expected: { columns: ColumnInfo[]; rows: unknown[][]; row_count: number };
+  created_at: string | null;
 }

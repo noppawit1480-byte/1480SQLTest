@@ -151,6 +151,46 @@ erDiagram
   }
 ```
 
+### Phase 2 additions (migration `0002_phase_2.py`)
+```mermaid
+erDiagram
+  projects ||--o{ exercises : "tasks (project_id)"
+  users ||--o{ assistant_logs : uses
+  users ||--o{ generated_exercises : owns
+  sample_databases ||--o{ projects : "runs on"
+  projects {
+    int id PK
+    text slug UK
+    text title
+    text role
+    text brief_md
+    jsonb deliverables
+    text sample_db FK
+    bool is_custom
+    bool admin_edited
+  }
+  assistant_logs {
+    bigint id PK
+    int user_id FK
+    text mode
+    text provider "rules | anthropic | ..."
+    bool ok
+    int input_tokens
+    int output_tokens
+  }
+  generated_exercises {
+    int id PK
+    int user_id FK
+    text db_key FK
+    text title
+    text solution_sql
+    jsonb expected "from sandbox execution"
+    timestamptz solved_at
+  }
+```
+- `lessons`, `exercises` เพิ่ม `is_custom`, `admin_edited` (content governance) และ `exercises.project_id`
+- `assistant_logs` ไม่เก็บ prompt/คำตอบ — เก็บเฉพาะ metadata สำหรับสถิติและโควตา
+
 ## 2. Design decisions
 | เรื่อง | การตัดสินใจ | เหตุผล |
 |---|---|---|
@@ -171,6 +211,7 @@ erDiagram
 | `banking` | customers, accounts, transactions, loans | ลูกค้าไม่มีบัญชี, บัญชีปิด, transaction ยอดติดลบ (withdraw), loan ที่ยังไม่อนุมัติ (approved_at NULL) |
 | `hospital` | patients, doctors, appointments, treatments | appointment ถูกยกเลิก (ไม่มี treatment), แพทย์ไม่มีนัด, ผู้ป่วยไม่มี phone |
 | `music_store` | artists, albums, tracks, playlists, playlist_tracks, invoices, invoice_items | ศิลปินไม่มีอัลบั้ม, track ไม่เคยขาย, composer NULL, playlist ว่าง |
+| `saas` *(advanced, Phase 2)* | plans, companies, users, subscriptions, invoices, events (JSONB, ~43k) | แพ็กเกจ Legacy ที่ปิดขาย, trial ที่ไม่ convert, บริษัทที่ churn, ผู้ใช้ไม่เคยกลับมา (last_seen NULL), event ที่ properties ว่าง, invoice ค้างชำระ |
 
 > `playlist_tracks` เพิ่มเป็น junction table ที่จำเป็นสำหรับความสัมพันธ์ many-to-many ระหว่าง playlists ↔ tracks
 

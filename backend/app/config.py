@@ -39,6 +39,11 @@ class Settings(BaseSettings):
 
     timezone: str = "Asia/Bangkok"
 
+    # SQL Learning Assistant (AI layer is optional; provider keys are read from the environment only)
+    rate_assistant_per_min: int = 30
+    rate_assistant_ai_per_min: int = 6
+    assistant_ai_daily_limit: int = 60
+
 
 @lru_cache
 def get_settings() -> Settings:

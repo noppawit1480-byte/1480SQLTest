@@ -1,53 +1,45 @@
 # Test Report
 
-> STEP 9 — ผลการทดสอบจริง ณ วันที่ส่งมอบ (2026-11-14) · PostgreSQL 16.15 · Python 3.13 · Node 22 · Chromium (Playwright 1.63)
+> STEP 9 — ผลการทดสอบจริง ณ การส่งมอบ Phase 2 (2026-11-16) · PostgreSQL 16.15 · Python 3.13 · Node 22 · Chromium (Playwright 1.63)
 
 ## สรุป
 | ชุดทดสอบ | เครื่องมือ | จำนวน | ผล |
 |---|---|---|---|
 | Unit (checker, splitter, validator, streak/level, serialization) | pytest | 23 | ✅ 23/23 |
-| Integration (FastAPI + main DB + sandbox cluster จริง) | pytest + TestClient | 34 | ✅ 34/34 |
-| Content validation (รันทุกตัวอย่าง 62 บท + ทุกเฉลย 70 โจทย์บน sandbox) | `python -m app.seed` | 132 | ✅ ผ่านทั้งหมด (~6 วินาที) |
-| Type check | `tsc --noEmit` (strict) | – | ✅ 0 error |
-| Production build | `next build` | 15 routes | ✅ |
-| End-to-End (เบราว์เซอร์จริง) | Playwright | 9 | ✅ 9/9 (local) · ✅ 9/9 (Docker Compose stack) |
-| Docker Compose | `docker compose up` | 4 services | ✅ healthy ทั้งหมด; ตรวจ network isolation แล้ว |
+| Integration — Phase 1 (API + main DB + sandbox จริง) | pytest + TestClient | 35 | ✅ 35/35 |
+| Integration — Phase 2 (projects, assistant rules + AI layer ด้วย fake provider, admin RBAC/CRUD) | pytest + TestClient | 25 | ✅ 25/25 |
+| Content validation (ตัวอย่าง 62 บท + เฉลย 70 โจทย์ + 25 งานโปรเจกต์ รันบน sandbox) | `python -m app.seed` | 157 | ✅ ผ่านทั้งหมด |
+| Type check / production build | `tsc --noEmit` · `next build` | 20 routes | ✅ |
+| End-to-End (เบราว์เซอร์จริง) | Playwright | 13 | ✅ 13/13 local · ✅ 13/13 Docker Compose |
+| Docker Compose | build + up + E2E + isolation | 4 services | ✅ healthy, sandbox ออก internet ไม่ได้ |
 
-Backend tests รันซ้ำ 3 รอบติดกันเพื่อตรวจ flakiness: 57/57 ทุกรอบ
+Backend รันซ้ำ 3 รอบ: 83/83 ทุกรอบ
 
-## Security checks ที่ทดสอบอัตโนมัติ (ผลลัพธ์จาก PostgreSQL จริง ไม่ใช่การจำลอง)
-| SEC | Test | ผล |
+## Phase 2 — สิ่งที่ทดสอบ
+| ด้าน | Test | ผล |
 |---|---|---|
-| SEC-2 | `DELETE/DROP/CREATE/UPDATE` ในโหมด read-only → ถูกปฏิเสธ, จำนวนแถวไม่เปลี่ยน | ✅ |
-| SEC-2 | `SET default_transaction_read_only = off; COMMIT; DELETE ...` → ยังถูกปฏิเสธด้วย privilege | ✅ |
-| SEC-8 | `pg_read_file`, `COPY ... TO PROGRAM`, `CREATE EXTENSION dblink`, `SELECT FROM pg_authid` → ปฏิเสธ | ✅ |
-| SEC-3 | `SET statement_timeout = 0; SELECT pg_sleep(30)` → ถูกยกเลิกโดย watchdog < 9s | ✅ |
-| SEC-5 | `generate_series(1, 5000000)` → ตัดที่ 1,000 แถว (streaming, ไม่ buffer ทั้งหมด) | ✅ |
-| SEC-7 | ผู้ใช้ A ลบข้อมูลใน writable sandbox → ผู้ใช้ B และ read-only DB ไม่กระทบ | ✅ |
-| SEC-7 | `ALTER ROLE CURRENT_USER SUPERUSER`, `CREATE DATABASE` → ปฏิเสธ | ✅ |
-| SEC-7 | ผู้ใช้อื่นแก้/ลบ saved query ที่ไม่ใช่ของตัวเอง → 404 | ✅ |
-| SEC-6 | `db_key` = `postgres` → 404, `../etc` → 422; preview ตาราง `pg_authid` → 404 | ✅ |
-| SEC-11 | login ผิดเกิน 10 ครั้ง/นาที → 429 | ✅ |
-| SEC-1/8 | (Docker) sandbox container ออก internet ไม่ได้; frontend container เชื่อม sandbox-db ไม่ได้ | ✅ |
+| Projects | 6 โปรเจกต์ / 25 งาน, งานโปรเจกต์ไม่ปะปนใน /practice, ทำครบทั้งโปรเจกต์ → achievement *Real-World Analyst* | ✅ |
+| Projects (JSONB) | คำตอบ JSONB ที่เขียนต่างจากเฉลย (`cast(... AS numeric)`, `extract(year …)`) ได้ Correct | ✅ |
+| Assistant rules | Explain เรียงตามลำดับการประมวลผลจริง · Review จับ LEFT JOIN→INNER, `= NULL`, `NOT IN`, `LIMIT` ไม่มี `ORDER BY`, `SELECT *` | ✅ |
+| Assistant errors | เดาชื่อ `customer`→`customers`, `frist_name`→`first_name`, อธิบาย GROUP BY, ใช้ error ที่ส่งมา (หารศูนย์ → NULLIF) | ✅ |
+| Assistant optimize | อ่าน EXPLAIN จริงบน `saas.events`: พบ Seq Scan + non-sargable · `DELETE` ไม่ถูกรัน (ข้อมูลไม่เปลี่ยน) | ✅ |
+| AI layer (fake provider) | context มี schema + ระดับผู้เรียน · **โหมดแบบฝึกหัดไม่ส่งเฉลยเข้า prompt** · provider ล่ม → 503 อย่างสุภาพ · ไม่มี key → 503 พร้อมข้อความ, guest ใช้ AI → 401 | ✅ |
+| Generate practice | AI ส่ง `DELETE` → ถูกปฏิเสธ แล้วให้ AI แก้พร้อมเหตุผล · expected มาจากการรันจริง · ตรวจคำตอบด้วย checker เดิม · เจ้าของเท่านั้นที่เห็น (อื่น → 404) · ไม่ผ่านทั้ง 2 รอบ → 503 | ✅ |
+| Admin RBAC | guest 401, learner 403 ทุก route | ✅ |
+| Admin users | ค้นหา, ระงับบัญชี → session ถูกยกเลิกทันที, แอดมินลดสิทธิ์ตัวเองไม่ได้ (409) | ✅ |
+| Admin content | เฉลยผิด → 422 พร้อมเหตุผล · dry-run · โจทย์ใหม่ผู้เรียนเห็นทันทีและผูกกับบทเรียน · โจทย์หลักลบไม่ได้ · DML ต้องมี check_sql | ✅ |
+| Content governance | บทเรียนที่แอดมินแก้ **ไม่ถูก seed ทับ**; revert แล้ว seed คืนเวอร์ชันจาก repository | ✅ |
+| Admin projects / DBs | ลบโปรเจกต์ → งาน cascade · rebuild `hr` + คำนวณ expected ใหม่ไม่มีข้อผิดพลาด | ✅ |
 
-## Answer-checking checks
-- คำตอบที่เขียนต่างจากเฉลย (correlated subquery แทน LEFT JOIN + GROUP BY) → **Correct**
-- `COUNT(*)` แทน `COUNT(p.id)` → Incorrect `VALUE_MISMATCH` พร้อมแถว `["Toys", 0]` ที่หายไป
-- ลำดับผิดในโจทย์ที่ตรวจลำดับ → `ORDER_MISMATCH`
-- โจทย์ DML ตรวจบนสำเนาใหม่ และไม่เปลี่ยน writable sandbox ของผู้เรียน
-- คะแนนให้ครั้งแรกที่ทำถูกเท่านั้น; Dashboard อัปเดต accuracy/streak/level/กราฟทันที
-
-## Bugs ที่พบระหว่างทดสอบและแก้แล้ว
+## Bugs ที่พบระหว่างพัฒนา Phase 2 และแก้แล้ว
 | # | พบจาก | ปัญหา | การแก้ |
 |---|---|---|---|
-| 1 | manual sandbox test | `cursor.stream()` error กับคำสั่งที่ไม่คืนแถว (`CREATE`, `SET`) | แยก command statements ใช้ `execute()`; ที่เหลือ stream |
-| 2 | validator test | ตำแหน่ง error เพี้ยนเมื่อมีภาษาไทย (คิดว่าเป็น byte offset) | pglast คืน character index อยู่แล้ว — ตัดการแปลงออก + เพิ่ม unit test |
-| 3 | browser walkthrough | Autocomplete เปิดทุกครั้งที่กด space ทำให้กด Enter แล้วรับ suggestion แทนขึ้นบรรทัดใหม่ | เหลือ trigger แค่ `.` และ `acceptSuggestionOnEnter: "smart"` |
-| 4 | E2E | race: โหลด schema + run พร้อมกันครั้งแรก → `CREATE DATABASE` ซ้อน → 500 | PostgreSQL advisory lock (ข้าม process/worker) รอบการสร้าง/รีเซ็ต DB |
-| 5 | regression test ของ #4 | race เดียวกันกับ `CREATE ROLE` | advisory lock รอบการสร้าง role |
-| 6 | regression test ของ #4 | request พร้อมกันเกิน `CONNECTION LIMIT` ของ role ได้ 500 | retry สั้น ๆ เมื่อ slot เต็ม, เพิ่ม limit เป็น 5, map เป็น 429 พร้อมข้อความ |
+| 7 | seeder (โจทย์ PJ-PROD-4) | **SELECT ที่ได้ 0 แถวไม่มีหัวคอลัมน์** — psycopg ทิ้ง metadata ของผลลัพธ์ว่างในโหมด streaming (กระทบผู้เรียนใน Playground และการตรวจคำตอบด้วย) | ขอ metadata จาก server ด้วย prepare + describe (ไม่ execute ซ้ำ) + regression test |
+| 8 | การออกแบบโจทย์ | PJ-PROD-4 เดิมมี expected result ว่าง (โจทย์ไม่มีคุณค่า) | ปรับเป็น *months of cover* ที่ได้ผลลัพธ์จริง 6 แถว |
+| 9 | browser walkthrough | ฟอนต์โค้ดแสดง ligature (`<=` เป็น `≤`, `->>` เป็นลูกศร) ทำให้ผู้เรียนเห็นตัวอักษรไม่ตรงกับที่ต้องพิมพ์ | ปิด ligature ใน code/pre และ Monaco |
+| 10 | E2E | test data ของ admin E2E ค้างในคลังโจทย์ทำให้ test อื่นที่นับจำนวนพัง | test ลบสิ่งที่สร้างเอง + assertion ไม่ผูกกับจำนวนรวม |
 
-หมายเหตุ: Docker Compose stack ถูก build และทดสอบ E2E ก่อนแก้ข้อ 6; ข้อ 6 ทดสอบแล้วบน local stack (unit + integration + E2E ผ่านทั้งหมด)
+ปัญหาของ **สภาพแวดล้อมทดสอบ** (ไม่ใช่ของระบบ): สคริปต์ deploy ของผมคัดลอก `.next/static` ซ้อนโฟลเดอร์ และ server เก่ายังจับ port อยู่ — แก้ในสคริปต์ทดสอบแล้ว ไม่กระทบ Dockerfile ที่ส่งมอบ
 
 ## รายละเอียดผลทดสอบ
 
@@ -86,6 +78,32 @@ Backend tests รันซ้ำ 3 รอบติดกันเพื่อต
 - integration/test_api.py::test_validate_endpoint ✅
 - integration/test_api.py::test_databases_and_er ✅
 - integration/test_api.py::test_concurrent_first_use_of_writable_db ✅
+- integration/test_api.py::test_zero_row_select_keeps_column_headers ✅
+- integration/test_phase2.py::test_projects_list_and_detail ✅
+- integration/test_phase2.py::test_completing_a_project_awards_achievement ✅
+- integration/test_phase2.py::test_saas_jsonb_task_accepts_equivalent_sql ✅
+- integration/test_phase2.py::test_status_without_ai ✅
+- integration/test_phase2.py::test_explain_works_for_guests ✅
+- integration/test_phase2.py::test_review_catches_classic_mistakes ✅
+- integration/test_phase2.py::test_explain_error_suggests_names ✅
+- integration/test_phase2.py::test_explain_error_uses_supplied_error ✅
+- integration/test_phase2.py::test_optimize_reads_real_plan ✅
+- integration/test_phase2.py::test_optimize_never_executes_writes ✅
+- integration/test_phase2.py::test_ai_endpoints_explain_unavailability ✅
+- integration/test_phase2.py::test_recommendations ✅
+- integration/test_phase2.py::test_ai_commentary_and_schema_context ✅
+- integration/test_phase2.py::test_exercise_context_never_leaks_solution ✅
+- integration/test_phase2.py::test_tutor_chat ✅
+- integration/test_phase2.py::test_provider_failure_is_graceful ✅
+- integration/test_phase2.py::test_generated_practice_validated_by_sandbox ✅
+- integration/test_phase2.py::test_generation_rejected_when_never_valid ✅
+- integration/test_phase2.py::test_admin_requires_admin_role ✅
+- integration/test_phase2.py::test_admin_stats_and_users ✅
+- integration/test_phase2.py::test_admin_exercise_crud_validates_on_sandbox ✅
+- integration/test_phase2.py::test_admin_dml_exercise_needs_check_sql ✅
+- integration/test_phase2.py::test_admin_edits_survive_reseed ✅
+- integration/test_phase2.py::test_admin_lesson_example_errors_rejected ✅
+- integration/test_phase2.py::test_admin_projects_achievements_databases ✅
 - unit/test_checker.py::test_identical_results_are_correct ✅
 - unit/test_checker.py::test_row_order_ignored_when_not_required ✅
 - unit/test_checker.py::test_row_order_enforced_when_required ✅
@@ -110,21 +128,25 @@ Backend tests รันซ้ำ 3 รอบติดกันเพื่อต
 - unit/test_sql_tools.py::test_streak ✅
 - unit/test_sql_tools.py::test_levels ✅
 
-### E2E (Playwright)
-- ✅ new learner sees a zeroed dashboard (no fake numbers)
-- ✅ guest can run SQL in the playground (read-only) and writes are refused
-- ✅ SQL error shows line and column
-- ✅ lesson → Try it opens the playground with the example
-- ✅ practice: hints, incorrect then correct submission updates progress
-- ✅ writable sandbox: modify then reset
-- ✅ lesson completion is reflected in the course table of contents
-- ✅ database page renders the ER diagram
-- ✅ mobile layout uses a drawer menu
+### E2E (Playwright — Docker Compose stack)
+- ✅ [platform] new learner sees a zeroed dashboard (no fake numbers)
+- ✅ [platform] guest can run SQL in the playground (read-only) and writes are refused
+- ✅ [phase2] projects: brief, tasks, and a task page linked back to its project
+- ✅ [platform] SQL error shows line and column
+- ✅ [phase2] assistant (rules) explains, reviews and optimizes without any AI key
+- ✅ [platform] lesson → Try it opens the playground with the example
+- ✅ [phase2] assistant explains the last SQL error
+- ✅ [platform] practice: hints, incorrect then correct submission updates progress
+- ✅ [phase2] admin panel is restricted and lets an admin create a validated exercise
+- ✅ [platform] writable sandbox: modify then reset
+- ✅ [platform] lesson completion is reflected in the course table of contents
+- ✅ [platform] database page renders the ER diagram
+- ✅ [platform] mobile layout uses a drawer menu
 
 ## สิ่งที่ยังไม่ได้ทดสอบ / ข้อจำกัดที่ทราบ
-- **Load test** ยังไม่ได้ทำ — ตัวเลข NFR-1 (p95 < 1s) วัดได้เพียงจากการใช้งานเดี่ยว (query ปกติ 5–20 ms, fresh-copy grading ~100–400 ms)
-- **ความจำของ sandbox**: ผู้ใช้ใน writable sandbox ตั้ง `SET work_mem` สูงเองได้ (PostgreSQL ไม่มีวิธีห้ามระดับ role) — ป้องกันด้วย timeout + `mem_limit` ของ container; production ขนาดใหญ่ควรพิจารณา sandbox ต่อผู้ใช้/ต่อกลุ่ม
-- **ขนาด writable DB**: ตรวจหลังแต่ละ execute (>200 MB → reset อัตโนมัติ) ไม่ใช่ระหว่าง statement
-- Rate limiter อยู่ใน memory ต่อ process (2 workers = limit คูณ 2) — ใช้ Redis เมื่อ scale
-- Cross-browser: ทดสอบเฉพาะ Chromium
-- Accessibility: มี aria-label/role/keyboard navigation หลัก แต่ยังไม่ได้ audit ด้วย screen reader
+- **AI layer กับ Claude API จริง** — ไม่มี `ANTHROPIC_API_KEY` ในสภาพแวดล้อมนี้ จึงทดสอบเส้นทาง AI ด้วย fake provider (context, นโยบายไม่เฉลย, การตรวจโจทย์ที่สร้าง, error handling) ส่วนการเรียก SDK จริงยังไม่ได้รัน — ควรทดสอบ smoke test หลังใส่ key
+- **Load test** ยังไม่ได้ทำ
+- Integration tests ใช้ฐานข้อมูล dev ร่วมกัน (สร้างผู้ใช้ใหม่ทุก test) — ควรแยก test database ใน CI
+- **ความจำของ sandbox**: ผู้ใช้ใน writable sandbox ตั้ง `work_mem` สูงเองได้ — ป้องกันด้วย timeout + `mem_limit` ของ container
+- Rate limiter ต่อนาทีอยู่ใน memory ต่อ process (โควตา AI รายวันนับจาก DB ถูกต้องข้าม worker)
+- Cross-browser: ทดสอบเฉพาะ Chromium · Accessibility: ยังไม่ได้ audit ด้วย screen reader

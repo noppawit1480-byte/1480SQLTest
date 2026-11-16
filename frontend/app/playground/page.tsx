@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { format } from "sql-formatter";
 import {
-  Bookmark, Database, Eraser, History, Lock, PanelLeft, Play, RotateCcw, Save, Trash2, Unlock, Wand2,
+  Bookmark, Bot, Database, Eraser, History, Lock, PanelLeft, Play, RotateCcw, Save, Trash2, Unlock, Wand2,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import type { DatabaseDetail, DatabaseSummary, ExecutionResult, HistoryItem, Mode, SavedQuery } from "@/lib/types";
 import { useAuth, useToast } from "@/components/providers";
+import { AssistantPanel } from "@/components/AssistantPanel";
 import { ResultView } from "@/components/ResultView";
 import { SchemaExplorer } from "@/components/SchemaExplorer";
 import { SqlEditor } from "@/components/SqlEditor";
@@ -24,7 +25,7 @@ const DEFAULT_SQL: Record<string, string> = {
   music_store: "SELECT t.genre, COUNT(*) AS tracks, ROUND(AVG(t.milliseconds) / 60000.0, 2) AS avg_minutes\nFROM tracks t\nGROUP BY t.genre\nORDER BY tracks DESC;",
 };
 
-type Panel = "results" | "history" | "saved";
+type Panel = "results" | "history" | "saved" | "assistant";
 
 function Playground() {
   const params = useSearchParams();
@@ -184,7 +185,7 @@ function Playground() {
         {/* Pane 3: Results / History / Saved */}
         <div className="flex min-h-0 flex-1 flex-col bg-surface">
           <div className="flex items-center gap-1 border-b border-line px-2 pt-1 text-xs" role="tablist">
-            {([["results", "ผลลัพธ์", Database], ["history", "History", History], ["saved", "Saved", Bookmark]] as const).map(([k, label, Icon]) => (
+            {([["results", "ผลลัพธ์", Database], ["assistant", "Assistant", Bot], ["history", "History", History], ["saved", "Saved", Bookmark]] as const).map(([k, label, Icon]) => (
               <button key={k} role="tab" aria-selected={panel === k} onClick={() => setPanel(k)}
                 className={cx("flex items-center gap-1 border-b-2 px-2.5 py-1.5", panel === k ? "border-brand font-medium text-fg" : "border-transparent text-muted hover:text-fg")}>
                 <Icon className="size-3.5" /> {label}
@@ -196,6 +197,7 @@ function Playground() {
           </div>
           <div className="min-h-0 flex-1 overflow-auto scrollbar-thin p-3">
             {panel === "results" && <ResultView result={result} running={running} />}
+            {panel === "assistant" && <AssistantPanel sql={sql} dbKey={dbKey} lastError={result?.error ?? null} onUseSql={(s) => setSql(s)} />}
             {panel === "history" && <HistoryPanel onPick={(h) => { setDbKey(h.db_key); setSql(h.sql); setPanel("results"); }} />}
             {panel === "saved" && <SavedPanel onPick={(q) => { setDbKey(q.db_key); setSql(q.sql); setPanel("results"); }} />}
           </div>

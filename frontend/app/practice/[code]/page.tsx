@@ -11,6 +11,7 @@ import { useApi } from "@/lib/hooks";
 import type { DatabaseDetail, ExecutionResult, ExerciseDetail, SubmitResult } from "@/lib/types";
 import { useAuth, useToast } from "@/components/providers";
 import { Markdown, SqlBlock } from "@/components/Markdown";
+import { AssistantPanel } from "@/components/AssistantPanel";
 import { DataTable, ResultView } from "@/components/ResultView";
 import { SchemaExplorer } from "@/components/SchemaExplorer";
 import { SqlEditor } from "@/components/SqlEditor";
@@ -31,10 +32,11 @@ export default function ExercisePage({ params }: { params: Promise<{ code: strin
   const [submit, setSubmit] = useState<SubmitResult | null>(null);
   const [busy, setBusy] = useState<"run" | "submit" | null>(null);
   const [leftTab, setLeftTab] = useState<"task" | "schema">("task");
+  const [bottom, setBottom] = useState<"result" | "assistant">("result");
 
   useEffect(() => {
     setSql(localStorage.getItem(`ex:${code}`) ?? `-- ${code}: เขียนคำตอบของคุณที่นี่\n`);
-    setHints(0); setSolution(null); setRunResult(null); setSubmit(null); setLeftTab("task");
+    setHints(0); setSolution(null); setRunResult(null); setSubmit(null); setLeftTab("task"); setBottom("result");
   }, [code]);
   useEffect(() => {
     const id = window.setTimeout(() => localStorage.setItem(`ex:${code}`, sql), 400);
@@ -42,7 +44,7 @@ export default function ExercisePage({ params }: { params: Promise<{ code: strin
   }, [sql, code]);
 
   const run = useCallback(async () => {
-    setBusy("run"); setSubmit(null);
+    setBusy("run"); setSubmit(null); setBottom("result");
     try {
       setRunResult(await api.post<ExecutionResult>(`/exercises/${code}/run`, { sql }));
     } catch (e) {
@@ -52,7 +54,7 @@ export default function ExercisePage({ params }: { params: Promise<{ code: strin
 
   async function doSubmit() {
     if (!user) { toast.push("err", "เข้าสู่ระบบเพื่อส่งคำตอบและบันทึกคะแนน"); return; }
-    setBusy("submit");
+    setBusy("submit"); setBottom("result");
     try {
       const r = await api.post<SubmitResult>(`/exercises/${code}/submit`, { sql });
       setSubmit(r); setRunResult(r.execution);
@@ -101,6 +103,11 @@ export default function ExercisePage({ params }: { params: Promise<{ code: strin
                 {e.check_type === "dml" && <Badge className="!text-warn">DML/DDL — ตรวจบนสำเนาฐานข้อมูลใหม่</Badge>}
                 {e.status === "solved" && <span className="flex items-center gap-1 text-xs font-medium text-ok"><CheckCircle2 className="size-3.5" /> ทำถูกแล้ว</span>}
               </div>
+              {e.project && (
+                <Link href={`/projects/${e.project.slug}`} className="mb-1 block text-xs font-medium text-brand hover:underline">
+                  Project: {e.project.title} · งานที่ {e.project.task_no}/{e.project.task_count}
+                </Link>
+              )}
               <h1 className="text-xl font-bold" data-testid="exercise-title">{e.title}</h1>
               <div className="mt-2"><Markdown>{e.description_md}</Markdown></div>
               {e.order_matters && <p className="mt-2 text-xs text-warn">⚠ โจทย์นี้ตรวจลำดับของแถวด้วย</p>}
@@ -132,7 +139,7 @@ export default function ExercisePage({ params }: { params: Promise<{ code: strin
         </div>
         <div className="flex items-center justify-between border-t border-line px-3 py-2 text-sm">
           {e.prev ? <Link href={`/practice/${e.prev}`} className="flex items-center gap-1 text-muted hover:text-fg"><ArrowLeft className="size-4" /> {e.prev}</Link> : <span />}
-          <Link href="/practice" className="text-xs text-muted hover:text-fg">รายการโจทย์</Link>
+          <Link href={e.project ? `/projects/${e.project.slug}` : "/practice"} className="text-xs text-muted hover:text-fg">{e.project ? "กลับไปที่โปรเจกต์" : "รายการโจทย์"}</Link>
           {e.next ? <Link href={`/practice/${e.next}`} className="flex items-center gap-1 text-muted hover:text-fg" data-testid="next-exercise">{e.next} <ArrowRight className="size-4" /></Link> : <span />}
         </div>
       </section>
@@ -152,9 +159,25 @@ export default function ExercisePage({ params }: { params: Promise<{ code: strin
         <div className="min-h-[160px] flex-1 border-b border-line">
           <SqlEditor value={sql} onChange={setSql} onRun={run} schema={schema.data?.tables} errorMarker={errorMarker} />
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin bg-surface p-3">
-          {submit && <Feedback r={submit} onUse={(s) => setSql(s)} />}
-          <ResultView result={runResult} running={busy !== null} emptyHint="Run เพื่อดูผลลัพธ์ของคุณ หรือ Submit เพื่อตรวจคำตอบ" />
+        <div className="flex min-h-0 flex-1 flex-col bg-surface">
+          <div className="flex gap-1 border-b border-line px-2 pt-1 text-xs" role="tablist">
+            {(["result", "assistant"] as const).map((t) => (
+              <button key={t} role="tab" aria-selected={bottom === t} onClick={() => setBottom(t)}
+                className={cx("border-b-2 px-2.5 py-1.5", bottom === t ? "border-brand font-medium" : "border-transparent text-muted")}>
+                {t === "result" ? "ผลลัพธ์ / ผลตรวจ" : "Assistant"}
+              </button>
+            ))}
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-3">
+            {bottom === "assistant" ? (
+              <AssistantPanel sql={sql} dbKey={e.sample_db} lastError={runResult?.error ?? null} exerciseCode={e.code} />
+            ) : (
+              <>
+                {submit && <Feedback r={submit} onUse={(s) => setSql(s)} />}
+                <ResultView result={runResult} running={busy !== null} emptyHint="Run เพื่อดูผลลัพธ์ของคุณ หรือ Submit เพื่อตรวจคำตอบ" />
+              </>
+            )}
+          </div>
         </div>
       </section>
     </div>

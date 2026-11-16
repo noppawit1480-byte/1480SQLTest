@@ -94,5 +94,57 @@
 | POST | `/me/heartbeat` | `{seconds: 1..60}` — เวลาเรียนจริงจากแท็บที่เปิดอยู่ |
 | GET | `/me/library` | bookmarks + notes |
 
+## Projects 👤 (Phase 2)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/projects` | 6 โปรเจกต์ + `tasks`, `solved`, `completed` ของผู้ใช้ |
+| GET | `/projects/{slug}` | `brief_md`, `deliverables`, รายการงาน (status), คะแนน |
+
+งานในโปรเจกต์เป็น exercise ที่มี `project_id` — ส่งคำตอบผ่าน `/exercises/{code}/run|submit` เหมือนโจทย์ทั่วไป (`GET /exercises/{code}` คืน `project: {slug, title, task_no, task_count}`) และไม่ปรากฏใน `GET /exercises`
+
+## SQL Learning Assistant (Phase 2)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/assistant/status` | `{ai_available, provider, model}` |
+| POST | `/assistant/analyze` 👤 | `{mode: explain\|review\|explain_error\|fix\|optimize, sql, db_key, error?, exercise_code?, use_ai?}` → `AssistantAnswer` · `use_ai` ต้อง 🔒 และต้องเปิด AI บนเซิร์ฟเวอร์ |
+| POST | `/assistant/tutor` 🔒 | `{messages: [{role, content}], db_key?, exercise_code?}` → `{reply_md}` (AI) |
+| GET | `/assistant/recommendations` 🔒 | หมวดที่อ่อน + โจทย์ที่ควรทำต่อ (rules) |
+| POST | `/assistant/generate` 🔒 | `{db_key, topic, difficulty}` → โจทย์ที่ AI สร้าง (`201`) — เฉลยถูกรันบน sandbox ก่อนบันทึก |
+| GET | `/assistant/generated`, `/assistant/generated/{id}` 🔒 | เฉพาะของผู้ใช้เอง (`404` ถ้าไม่ใช่) |
+| POST | `/assistant/generated/{id}/run`, `/submit` 🔒 | ตรวจด้วย checker เดียวกับโจทย์หลัก (ไม่ให้คะแนน) |
+| GET | `/assistant/generated/{id}/solution` 🔒 | เฉลย |
+
+```jsonc
+// AssistantAnswer
+{
+  "mode": "review", "source": "rules",          // "rules+ai" เมื่อ use_ai
+  "summary": "พบ 2 ประเด็น: 2 ควรแก้",
+  "sections": [{"title": "2. WHERE — กรองทีละแถว", "body_md": "...", "sql": "o.status = 'paid'"}],
+  "findings": [{"code": "LEFT_JOIN_WHERE", "severity": "warning", "title": "...", "body_md": "...", "suggestion_sql": null}],
+  "plan": [{"depth": 0, "node": "Seq Scan", "relation": "events", "rows": 216, "cost": 1085.2, "filter": "..."}],  // optimize
+  "ai_md": null
+}
+```
+- Error codes: `401` (AI ต้อง login), `429` (rate limit / เกินโควตา AI รายวัน), `503` (ยังไม่ตั้งค่า AI หรือ provider ขัดข้อง — โหมด rules ยังใช้ได้)
+- Finding codes: `NO_WHERE`, `SELECT_STAR`, `LIMIT_NO_ORDER`, `BIG_OFFSET`, `DISTINCT_GROUP`, `ORDER_BY_ORDINAL`, `HAVING_NO_AGG`, `IMPLICIT_JOIN`, `LEFT_JOIN_WHERE`, `COUNT_STAR_LEFT`, `NOT_IN_SUBQUERY`, `EQ_NULL`, `LEADING_WILDCARD`, `INT_DIVISION`, `NON_SARGABLE`, `SEQ_SCAN_<table>`, `BIG_SORT`, `BIG_NESTED_LOOP`
+
+## Admin 🛡️ (Phase 2 — ทุก route ต้อง `role = admin`, อื่น ๆ ได้ `403`)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/admin/stats` | ผู้ใช้, active, submissions, โจทย์ที่ยากที่สุด, กิจกรรม 14 วัน, การใช้ assistant |
+| GET | `/admin/users?q=&page=` · `/admin/users/{id}` | รายชื่อ + progress ของผู้ใช้ |
+| PATCH | `/admin/users/{id}` | `{role?, is_active?}` — ระงับแล้ว revoke session ทันที; แก้ตัวเองไม่ได้ (`409`) |
+| GET / PUT | `/admin/courses`, `/admin/courses/{id}` | |
+| GET / POST / PUT / DELETE | `/admin/lessons[/{id}]` | ตัวอย่างถูกรันจริงตอนบันทึก; ลบได้เฉพาะบทที่สร้างเอง |
+| POST | `/admin/lessons/{id}/revert` | คืนบทเรียนหลักให้ seed (content-as-code) |
+| GET / POST / PUT / DELETE | `/admin/exercises[/{id}]` | เฉลยต้องรันผ่าน (`422` พร้อมเหตุผล) — expected คำนวณจากการรัน |
+| POST | `/admin/exercises/validate` | dry-run เฉลย |
+| GET / POST / PUT / DELETE | `/admin/projects[/{id}]` | ลบโปรเจกต์ = ลบงานในโปรเจกต์ (cascade) |
+| GET / PUT | `/admin/achievements[/{key}]` | แก้ title/description/icon |
+| GET / PUT | `/admin/databases[/{key}]` | |
+| POST | `/admin/databases/{key}/rebuild` | สร้าง template + read-only ใหม่ แล้วคำนวณ expected ของโจทย์บน DB นั้นใหม่ |
+
+ทุก action ถูกบันทึกใน log: `event=admin_action admin=<id> action=<...> target=<...>`
+
 ## Health
 `GET /api/health` → `{"status": "ok"}`

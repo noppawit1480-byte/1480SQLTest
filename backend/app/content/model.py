@@ -54,6 +54,20 @@ class ExerciseDef:
     check_type: str = "select"          # select | dml
     check_sql: str | None = None        # dml only: query whose result is compared after running the answer
     check_column_names: bool = True
+    project: str | None = None          # slug of the real-world project this task belongs to
+
+
+@dataclass
+class ProjectDef:
+    slug: str
+    title: str
+    role: str                           # job role the learner plays
+    summary: str
+    brief: str                          # business scenario (markdown)
+    deliverables: list[str]
+    db: str
+    difficulty: str
+    tasks: list[ExerciseDef]
 
 
 POINTS = {"easy": 10, "medium": 20, "hard": 30, "expert": 50}
