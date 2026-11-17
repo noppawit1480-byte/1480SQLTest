@@ -37,8 +37,12 @@ class LoginIn(BaseModel):
     password: str = Field(max_length=128)
 
 
+Engine = Literal["postgresql", "sqlite"]
+
+
 class ExecuteIn(BaseModel):
     db_key: str = DbKey
+    engine: Engine = "postgresql"
     mode: Literal["readonly", "writable"] = "readonly"
     sql: str = Field(max_length=20000)
 
@@ -49,6 +53,7 @@ class ValidateIn(BaseModel):
 
 class ResetIn(BaseModel):
     db_key: str = DbKey
+    engine: Engine = "postgresql"
 
 
 class SqlIn(BaseModel):
@@ -58,6 +63,7 @@ class SqlIn(BaseModel):
 class SavedQueryIn(BaseModel):
     title: str = Field(min_length=1, max_length=120)
     db_key: str = DbKey
+    engine: Engine = "postgresql"
     sql: str = Field(min_length=1, max_length=20000)
 
 

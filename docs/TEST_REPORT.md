@@ -1,6 +1,6 @@
 # Test Report
 
-> STEP 9 — ผลการทดสอบจริง ณ การส่งมอบ Phase 2 (2026-11-16) · PostgreSQL 16.15 · Python 3.13 · Node 22 · Chromium (Playwright 1.63)
+> STEP 9 — ผลการทดสอบจริง ณ การส่งมอบ Phase 3 (2026-11-17) · PostgreSQL 16 · SQLite 3 (Python 3.13 stdlib) · Node 22 · Chromium (Playwright)
 
 ## สรุป
 | ชุดทดสอบ | เครื่องมือ | จำนวน | ผล |
@@ -8,12 +8,45 @@
 | Unit (checker, splitter, validator, streak/level, serialization) | pytest | 23 | ✅ 23/23 |
 | Integration — Phase 1 (API + main DB + sandbox จริง) | pytest + TestClient | 35 | ✅ 35/35 |
 | Integration — Phase 2 (projects, assistant rules + AI layer ด้วย fake provider, admin RBAC/CRUD) | pytest + TestClient | 25 | ✅ 25/25 |
-| Content validation (ตัวอย่าง 62 บท + เฉลย 70 โจทย์ + 25 งานโปรเจกต์ รันบน sandbox) | `python -m app.seed` | 157 | ✅ ผ่านทั้งหมด |
-| Type check / production build | `tsc --noEmit` · `next build` | 20 routes | ✅ |
-| End-to-End (เบราว์เซอร์จริง) | Playwright | 13 | ✅ 13/13 local · ✅ 13/13 Docker Compose |
-| Docker Compose | build + up + E2E + isolation | 4 services | ✅ healthy, sandbox ออก internet ไม่ได้ |
+| Integration — Phase 3 (SQLite sandbox, explain/index lab, dialects, designer, CSV, challenges, leaderboard, community) | pytest + TestClient | 25 | ✅ 25/25 |
+| Content validation (ตัวอย่าง 62 บท + เฉลย 70 โจทย์ + 10 โจทย์สัมภาษณ์ + 25 งานโปรเจกต์ รันบน sandbox; export SQLite 7 DB) | `python -m app.seed` | 167 | ✅ ผ่านทั้งหมด |
+| Type check / production build | `tsc --noEmit` · `next build` | 27 routes | ✅ |
+| End-to-End (เบราว์เซอร์จริง) | Playwright | 21 | ✅ 21/21 local · ✅ 21/21 Docker Compose |
+| Docker Compose | build + up + restart + E2E + isolation | 4 services + volume `sqlite-data` | ✅ healthy, sandbox ออก internet ไม่ได้, frontend เข้า sandbox-db ไม่ได้ |
 
-Backend รันซ้ำ 3 รอบ: 83/83 ทุกรอบ
+Backend รันซ้ำ 3 รอบ: 108/108 ทุกรอบ
+E2E ต้องรัน backend ด้วย `RATE_AUTH_PER_MIN=200` (สมัครสมาชิก > 10 บัญชีต่อนาที) — ด้วยค่า production (10) จะได้ 429 ตามที่ออกแบบไว้
+
+## Phase 3 — สิ่งที่ทดสอบ
+| ด้าน | Test | ผล |
+|---|---|---|
+| SQLite = ข้อมูลเดียวกัน | จำนวนแถวของ `ecommerce.orders`, `saas.events`, `hr.salaries` บน SQLite ตรงกับ PostgreSQL | ✅ |
+| SQLite security | `DELETE` ในโหมด read-only, `ATTACH '/etc/passwd'`, `PRAGMA writable_schema`, `load_extension` → ถูกปฏิเสธพร้อมข้อความ | ✅ |
+| SQLite limits | recursive CTE ไม่รู้จบ → timeout (ตรวจซ้ำด้วยมือใน container ด้วย) · ผลเกิน `MAX_RESULT_ROWS` ถูกตัดที่ 1,000 แถว | ✅ |
+| SQLite writable | แยกต่อผู้ใช้ · ไม่กระทบ read-only · Reset คืนค่าเดิม · schema มี FK · History จำ engine · engine ที่ไม่รองรับ → 422 | ✅ |
+| Dialect comparison | GROUP BY ที่ได้ผลเหมือนกันทั้งสอง engine → `same: true` · `DATE_TRUNC … ::date` รันได้เฉพาะ PostgreSQL → `same: false` และตรวจพบ feature `date_trunc`, `cast_op`, `limit` · ตารางอ้างอิง ≥ 20 หัวข้อ | ✅ |
+| Explain / Analyze | ANALYZE มีเวลา execution · `EXPLAIN ANALYZE DELETE FROM payments` บน writable sandbox แล้วข้อมูลยังครบ 946 แถว · SQLite plan ใช้ index `idx_orders_customer` · หลาย statement → 422 | ✅ |
+| Index lab | ก่อน: Seq Scan บน `saas.events` · หลัง: index ใหม่ถูกใช้ (ทดลองด้วยมือวัดได้เร็วขึ้น ~10×) · `DROP TABLE` แทน `CREATE INDEX` → 422 · guest → 401 · index ไม่ค้างในฐานข้อมูลกลาง | ✅ |
+| Designer | DDL 3 dialect (identity/AUTOINCREMENT, ON DELETE CASCADE) + Mermaid · ชื่อตารางแบบ injection (`t1); DROP TABLE x;--`) ถูกปฏิเสธและไม่สร้าง DDL · FK ที่ชี้คอลัมน์ที่ไม่ใช่ PK/UNIQUE ถูกเตือน · reverse-engineer `hr` · apply สร้างตารางจริงบน PostgreSQL และ SQLite และ **FK ถูกบังคับใช้ทั้งสอง engine** · แบบของคนอื่น → 404 | ✅ |
+| CSV import | หัวคอลัมน์ถูก sanitize (`Order ID` → `order_id`) · infer ชนิด integer/text/numeric/boolean/date · ค่าว่างเป็น NULL · นำเข้าทั้งสอง engine · ตารางซ้ำโดยไม่ replace, ชื่อตารางไม่ถูกต้อง, ชื่อคอลัมน์ซ้ำ → 422 · guest → 401 | ✅ |
+| Timed challenge | ไม่มีเฉลยใน response · hint ลดคะแนน · ทำครบในเวลา → *Beat the Clock* · session ของคนอื่น → 404 | ✅ |
+| Deadline | ส่งหลัง deadline → 409 และ session เป็น `expired` · เปิดพร้อมกันได้ไม่เกิน 3 | ✅ |
+| เฉลยระหว่าง challenge | `GET /exercises/{code}/solution` → 409 และ submit ปกติไม่คืนเฉลย จนกว่าจะจบ challenge | ✅ |
+| Mock interview | rubric 4 เกณฑ์ น้ำหนัก 50/20/10/20 · ผ่าน → *Interview Ready* · โจทย์สัมภาษณ์ไม่ปนใน /practice | ✅ |
+| Leaderboard | คะแนนของผู้เรียนปรากฏใน `me` · ไม่มีอีเมลในรายการ · ซ่อนตัวเองแล้วหายจากรายการและ `me_hidden: true` | ✅ |
+| Community | โพสต์ที่มี ```sql เป็น spoiler อัตโนมัติ · ผู้ที่ยังไม่ทำโจทย์ถูกไม่ได้รับ body จนกว่าจะทำถูก (การกด “แสดง spoiler” ทดสอบใน E2E) · ตอบกลับ · โหวต 1 ครั้ง, โหวตตัวเอง → 409 · ลบโพสต์คนอื่น → 404 · learner เปิดคิว report → 403 · report → admin ซ่อน → body ไม่ถูกส่งให้ผู้ใช้อื่น และรายงานถูกปิด · admin ซ่อนโพสต์ผ่าน UI (E2E) | ✅ |
+
+## Bugs ที่พบระหว่างพัฒนา Phase 3 และแก้แล้ว
+| # | พบจาก | ปัญหา | การแก้ |
+|---|---|---|---|
+| 11 | integration test | SQLite ส่ง "disk I/O error" เมื่อฐานข้อมูลส่วนตัวเกินขนาด (rlimit) — ผู้เรียนไม่เข้าใจ | map เป็น error `limit` พร้อมข้อความภาษาไทย |
+| 12 | seeder | โจทย์สัมภาษณ์ IV-03 มี expected result ว่าง | เปลี่ยนเป็นโจทย์ "พนักงานที่เข้างานก่อนหัวหน้า" ที่มีผลลัพธ์จริง |
+| 13 | code review | รางวัล achievement ของ challenge ถูกเก็บใน dict ระดับ module (ปะปนข้าม request/worker) | คืนค่าจากฟังก์ชันโดยตรง |
+| 14 | security review | ระหว่าง challenge ผู้เรียนเปิดเฉลยของข้อเดียวกันผ่านหน้าแบบฝึกหัดได้ | ล็อกเฉลย (409) และไม่ส่งเฉลยใน submit ระหว่าง session active + test |
+| 15 | E2E | checkbox ซ่อนชื่อใน Leaderboard เปลี่ยนสถานะหลังโหลดใหม่เท่านั้น | อัปเดตทันที (optimistic) และย้อนกลับเมื่อ error |
+| 16 | log review | log ของ seed ไม่นับโจทย์สัมภาษณ์ | แสดงจำนวนแยก |
+
+ปัญหาของ **สภาพแวดล้อมทดสอบ**: Docker Hub ตอบ 429 (rate limit) ระหว่างดึง `node:22-alpine` ครั้งแรก — ลองใหม่แล้วผ่าน; E2E ต้องเพิ่ม `RATE_AUTH_PER_MIN` (เพิ่มตัวแปรนี้ใน compose ให้ตั้งได้ ค่าเริ่มต้นยังเป็น 10)
 
 ## Phase 2 — สิ่งที่ทดสอบ
 | ด้าน | Test | ผล |
@@ -43,21 +76,12 @@ Backend รันซ้ำ 3 รอบ: 83/83 ทุกรอบ
 
 ## รายละเอียดผลทดสอบ
 
-### Backend (pytest -v)
+### Backend (pytest -v) — 108 passed
 - integration/test_api.py::test_register_login_logout_flow ✅
 - integration/test_api.py::test_register_validation_and_duplicate ✅
 - integration/test_api.py::test_protected_endpoints_require_login ✅
 - integration/test_api.py::test_auth_rate_limited ✅
 - integration/test_api.py::test_readonly_select_works ✅
-- integration/test_api.py::test_readonly_mode_rejects_writes[DELETE FROM customers] ✅
-- integration/test_api.py::test_readonly_mode_rejects_writes[DROP TABLE orders] ✅
-- integration/test_api.py::test_readonly_mode_rejects_writes[CREATE TABLE x (id int)] ✅
-- integration/test_api.py::test_readonly_mode_rejects_writes[UPDATE products SET price = 0] ✅
-- integration/test_api.py::test_readonly_mode_rejects_writes[SET default_transaction_read_only = off; COMMIT; DELETE FROM customers] ✅
-- integration/test_api.py::test_os_and_privileged_access_denied[SELECT pg_read_file('/etc/passwd')] ✅
-- integration/test_api.py::test_os_and_privileged_access_denied[COPY customers TO PROGRAM 'id'] ✅
-- integration/test_api.py::test_os_and_privileged_access_denied[CREATE EXTENSION dblink] ✅
-- integration/test_api.py::test_os_and_privileged_access_denied[SELECT * FROM pg_authid] ✅
 - integration/test_api.py::test_timeout_enforced_even_if_user_disables_it ✅
 - integration/test_api.py::test_row_cap ✅
 - integration/test_api.py::test_error_position_reported ✅
@@ -104,6 +128,27 @@ Backend รันซ้ำ 3 รอบ: 83/83 ทุกรอบ
 - integration/test_phase2.py::test_admin_edits_survive_reseed ✅
 - integration/test_phase2.py::test_admin_lesson_example_errors_rejected ✅
 - integration/test_phase2.py::test_admin_projects_achievements_databases ✅
+- integration/test_phase3.py::test_sqlite_has_the_same_data ✅
+- integration/test_phase3.py::test_sqlite_timeout_and_row_cap ✅
+- integration/test_phase3.py::test_sqlite_writable_isolated_and_resettable ✅
+- integration/test_phase3.py::test_sqlite_schema_and_history ✅
+- integration/test_phase3.py::test_dialect_comparison ✅
+- integration/test_phase3.py::test_explain_and_analyze_never_persist ✅
+- integration/test_phase3.py::test_index_lab ✅
+- integration/test_phase3.py::test_design_ddl_validation ✅
+- integration/test_phase3.py::test_design_apply_and_ownership[postgresql] ✅
+- integration/test_phase3.py::test_design_apply_and_ownership[sqlite] ✅
+- integration/test_phase3.py::test_csv_import[postgresql] ✅
+- integration/test_phase3.py::test_csv_import[sqlite] ✅
+- integration/test_phase3.py::test_csv_requires_login ✅
+- integration/test_phase3.py::test_timed_challenge_flow ✅
+- integration/test_phase3.py::test_challenge_deadline_enforced ✅
+- integration/test_phase3.py::test_solution_locked_during_active_challenge ✅
+- integration/test_phase3.py::test_active_session_limit ✅
+- integration/test_phase3.py::test_mock_interview_rubric ✅
+- integration/test_phase3.py::test_leaderboard_and_opt_out ✅
+- integration/test_phase3.py::test_discussion_spoilers_votes_and_ownership ✅
+- integration/test_phase3.py::test_moderation ✅
 - unit/test_checker.py::test_identical_results_are_correct ✅
 - unit/test_checker.py::test_row_order_ignored_when_not_required ✅
 - unit/test_checker.py::test_row_order_enforced_when_required ✅
@@ -128,22 +173,33 @@ Backend รันซ้ำ 3 รอบ: 83/83 ทุกรอบ
 - unit/test_sql_tools.py::test_streak ✅
 - unit/test_sql_tools.py::test_levels ✅
 
-### E2E (Playwright — Docker Compose stack)
+### E2E (Playwright) — 21 passed (local และ Docker Compose stack)
+- ✅ [phase2] projects: brief, tasks, and a task page linked back to its project
+- ✅ [phase2] assistant (rules) explains, reviews and optimizes without any AI key
+- ✅ [phase2] assistant explains the last SQL error
+- ✅ [phase2] admin panel is restricted and lets an admin create a validated exercise
+- ✅ [phase3] playground runs the same query on SQLite and shows an execution plan
+- ✅ [phase3] dialect comparison reports differences between engines
+- ✅ [phase3] ER designer validates, generates DDL and creates the tables in the learner's sandbox
+- ✅ [phase3] CSV import previews types and loads rows
+- ✅ [phase3] random challenge: server timer, wrong answer, finish and report
+- ✅ [phase3] mock interview shows the approach box and a rubric
+- ✅ [phase3] discussion hides SQL spoilers from learners who have not solved the exercise; leaderboard opt-out
+- ✅ [phase3] admin can hide a reported post
 - ✅ [platform] new learner sees a zeroed dashboard (no fake numbers)
 - ✅ [platform] guest can run SQL in the playground (read-only) and writes are refused
-- ✅ [phase2] projects: brief, tasks, and a task page linked back to its project
 - ✅ [platform] SQL error shows line and column
-- ✅ [phase2] assistant (rules) explains, reviews and optimizes without any AI key
 - ✅ [platform] lesson → Try it opens the playground with the example
-- ✅ [phase2] assistant explains the last SQL error
 - ✅ [platform] practice: hints, incorrect then correct submission updates progress
-- ✅ [phase2] admin panel is restricted and lets an admin create a validated exercise
 - ✅ [platform] writable sandbox: modify then reset
 - ✅ [platform] lesson completion is reflected in the course table of contents
 - ✅ [platform] database page renders the ER diagram
 - ✅ [platform] mobile layout uses a drawer menu
 
 ## สิ่งที่ยังไม่ได้ทดสอบ / ข้อจำกัดที่ทราบ
+- **MySQL engine ไม่มี** — ไม่ได้ทดสอบเพราะไม่ได้ implement (DDL ของ MySQL จาก Designer ไม่ได้ถูกรันบน MySQL จริง)
+- SQLite worker ใช้ rlimit ของ Linux — ทดสอบบน Linux (local + container) เท่านั้น
+- Challenges/leaderboard ไม่ได้ทดสอบภายใต้ผู้ใช้พร้อมกันจำนวนมาก (ไม่มี load test)
 - **AI layer กับ Claude API จริง** — ไม่มี `ANTHROPIC_API_KEY` ในสภาพแวดล้อมนี้ จึงทดสอบเส้นทาง AI ด้วย fake provider (context, นโยบายไม่เฉลย, การตรวจโจทย์ที่สร้าง, error handling) ส่วนการเรียก SDK จริงยังไม่ได้รัน — ควรทดสอบ smoke test หลังใส่ key
 - **Load test** ยังไม่ได้ทำ
 - Integration tests ใช้ฐานข้อมูล dev ร่วมกัน (สร้างผู้ใช้ใหม่ทุก test) — ควรแยก test database ใน CI

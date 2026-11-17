@@ -15,6 +15,7 @@ import { AssistantPanel } from "@/components/AssistantPanel";
 import { DataTable, ResultView } from "@/components/ResultView";
 import { SchemaExplorer } from "@/components/SchemaExplorer";
 import { SqlEditor } from "@/components/SqlEditor";
+import { Discussion } from "@/components/Discussion";
 import { Badge, Button, ButtonLink, cx, DifficultyBadge, ErrorState, Spinner } from "@/components/ui";
 
 const HINT_LABELS = ["Hint 1: คำใบ้เบื้องต้น", "Hint 2: แนวทางการแก้", "Hint 3: SQL Keywords ที่ควรใช้"];
@@ -31,7 +32,7 @@ export default function ExercisePage({ params }: { params: Promise<{ code: strin
   const [runResult, setRunResult] = useState<ExecutionResult | null>(null);
   const [submit, setSubmit] = useState<SubmitResult | null>(null);
   const [busy, setBusy] = useState<"run" | "submit" | null>(null);
-  const [leftTab, setLeftTab] = useState<"task" | "schema">("task");
+  const [leftTab, setLeftTab] = useState<"task" | "schema" | "discuss">("task");
   const [bottom, setBottom] = useState<"result" | "assistant">("result");
 
   useEffect(() => {
@@ -84,15 +85,17 @@ export default function ExercisePage({ params }: { params: Promise<{ code: strin
       {/* Left: problem */}
       <section className="flex min-h-0 flex-col border-line bg-surface lg:w-[42%] lg:border-r max-lg:max-h-[45%]">
         <div className="flex items-center gap-1 border-b border-line px-3 pt-1 text-xs" role="tablist">
-          {(["task", "schema"] as const).map((t) => (
+          {(["task", "schema", "discuss"] as const).map((t) => (
             <button key={t} role="tab" aria-selected={leftTab === t} onClick={() => setLeftTab(t)}
               className={cx("border-b-2 px-2.5 py-1.5", leftTab === t ? "border-brand font-medium" : "border-transparent text-muted")}>
-              {t === "task" ? "โจทย์" : `Schema: ${e.sample_db}`}
+              {t === "task" ? "โจทย์" : t === "discuss" ? "สนทนา" : `Schema: ${e.sample_db}`}
             </button>
           ))}
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-4">
-          {leftTab === "schema" ? (
+          {leftTab === "discuss" ? (
+            <Discussion targetType="exercise" targetKey={e.code} />
+          ) : leftTab === "schema" ? (
             schema.data ? <SchemaExplorer tables={schema.data.tables} /> : <Spinner />
           ) : (
             <>

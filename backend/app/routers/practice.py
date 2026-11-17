@@ -32,14 +32,16 @@ def _ordered_codes(db: Session, ex: Exercise) -> list[str]:
     """Prev/next navigation: within the same project, or across the general practice set."""
     if ex.project_id is not None:
         return list(db.scalars(select(Exercise.code).where(Exercise.project_id == ex.project_id).order_by(Exercise.position)))
-    rows = db.execute(select(Exercise.code, Exercise.difficulty, Exercise.position).where(Exercise.project_id.is_(None))).all()
+    rows = db.execute(select(Exercise.code, Exercise.difficulty, Exercise.position).where(
+        Exercise.project_id.is_(None), Exercise.is_interview == ex.is_interview)).all()
     return [c for c, _, _ in sorted(rows, key=lambda r: (DIFF_ORDER.get(r[1], 9), r[2]))]
 
 
 @router.get("")
 def list_exercises(difficulty: str | None = None, category: str | None = None, db: Session = Depends(get_db),
                    user: User | None = Depends(get_optional_user)):
-    q = select(Exercise).where(Exercise.project_id.is_(None))  # project tasks live under /projects
+    # project tasks live under /projects, interview questions in the mock interview pool
+    q = select(Exercise).where(Exercise.project_id.is_(None), Exercise.is_interview.is_(False))
     if difficulty:
         q = q.where(Exercise.difficulty == difficulty)
     if category:
@@ -47,7 +49,8 @@ def list_exercises(difficulty: str | None = None, category: str | None = None, d
     solved = progress.solved_exercise_ids(db, user.id) if user else set()
     attempted = progress.attempted_exercise_ids(db, user.id) if user else set()
     items = sorted(db.scalars(q), key=lambda e: (DIFF_ORDER.get(e.difficulty, 9), e.position))
-    cats = sorted(set(db.scalars(select(Exercise.category).where(Exercise.project_id.is_(None)).distinct())))
+    cats = sorted(set(db.scalars(select(Exercise.category).where(Exercise.project_id.is_(None),
+                                                                 Exercise.is_interview.is_(False)).distinct())))
     return {
         "categories": cats,
         "items": [{"code": e.code, "title": e.title, "difficulty": e.difficulty, "category": e.category,
@@ -97,6 +100,29 @@ def _run_answer(ex: Exercise, sql: str, user: User | None) -> ExecutionResult:
     return sb.execute(sb.readonly_target(ex.sample_db), sql)
 
 
+def grade(db: Session, ex: Exercise, sql: str, user: User) -> dict:
+    """Run + check one answer and record the Submission (shared by practice, projects and challenges).
+    The caller evaluates achievements and commits."""
+    result = _run_answer(ex, sql, user)
+    actual = None
+    if not result.ok:
+        correct, reason, message, details = False, "SQL_ERROR", "SQL มีข้อผิดพลาด: " + (result.error.message if result.error else ""), {}
+    else:
+        last = result.last_rows
+        actual = {"columns": [asdict(c) for c in last.columns], "rows": last.rows, "truncated": last.truncated} if last \
+            else {"columns": [], "rows": []}
+        chk = compare_results(actual, ex.expected, order_matters=ex.order_matters, check_column_names=ex.check_column_names)
+        correct, reason, message, details = chk.correct, chk.reason_code, chk.message, chk.details
+    already = ex.id in progress.solved_exercise_ids(db, user.id)
+    db.add(Submission(user_id=user.id, exercise_id=ex.id, sql=sql, is_correct=correct, reason_code=reason,
+                      exec_ms=result.exec_ms))
+    progress.record_activity(db, user.id)
+    db.flush()
+    log.info("event=submit user=%s ex=%s correct=%s reason=%s", user.id, ex.code, correct, reason)
+    return {"result": result, "actual": actual, "correct": correct, "reason": reason, "message": message,
+            "details": details, "already": already}
+
+
 @router.post("/{code}/run")
 def run(code: str, body: SqlIn, request: Request, db: Session = Depends(get_db),
         user: User | None = Depends(get_optional_user)):
@@ -114,25 +140,12 @@ def submit(code: str, body: SqlIn, request: Request, db: Session = Depends(get_d
            user: User = Depends(get_current_user)):
     check_rate(request, "execute", get_settings().rate_execute_per_min)
     ex = _get(db, code)
-    result = _run_answer(ex, body.sql, user)
-    actual = None
-    if not result.ok:
-        correct, reason, message, details = False, "SQL_ERROR", "SQL มีข้อผิดพลาด: " + (result.error.message if result.error else ""), {}
-    else:
-        last = result.last_rows
-        actual = {"columns": [asdict(c) for c in last.columns], "rows": last.rows, "truncated": last.truncated} if last \
-            else {"columns": [], "rows": []}
-        chk = compare_results(actual, ex.expected, order_matters=ex.order_matters,
-                              check_column_names=ex.check_column_names)
-        correct, reason, message, details = chk.correct, chk.reason_code, chk.message, chk.details
-    already = ex.id in progress.solved_exercise_ids(db, user.id)
-    db.add(Submission(user_id=user.id, exercise_id=ex.id, sql=body.sql, is_correct=correct, reason_code=reason,
-                      exec_ms=result.exec_ms))
-    progress.record_activity(db, user.id)
-    db.flush()
+    g = grade(db, ex, body.sql, user)
+    locked = _in_active_challenge(db, user, ex)
     new = progress.evaluate_achievements(db, user.id)
     db.commit()
-    log.info("event=submit user=%s ex=%s correct=%s reason=%s", user.id, ex.code, correct, reason)
+    result, actual, correct, reason, message, details, already = (g["result"], g["actual"], g["correct"], g["reason"],
+                                                                    g["message"], g["details"], g["already"])
     return {
         "correct": correct, "reason_code": reason, "message": message, "details": details,
         "points_awarded": ex.points if correct and not already else 0,
@@ -140,13 +153,25 @@ def submit(code: str, body: SqlIn, request: Request, db: Session = Depends(get_d
         "actual": {"columns": actual["columns"], "rows": actual["rows"][:200]} if actual else None,
         "expected": {"columns": ex.expected.get("columns", []), "rows": ex.expected.get("rows", [])[:200],
                      "row_count": len(ex.expected.get("rows", []))},
-        "explanation_md": ex.explanation_md,
-        "solution_sql": ex.solution_sql,
+        "explanation_md": None if locked else ex.explanation_md,
+        "solution_sql": None if locked else ex.solution_sql,
         "new_achievements": new,
     }
 
 
+def _in_active_challenge(db: Session, user: User | None, ex: Exercise) -> bool:
+    from app.models import ChallengeItem, ChallengeSession
+    from app.services import challenges as chsvc
+    if user is None:
+        return False
+    return db.scalar(select(func.count()).select_from(ChallengeItem).join(ChallengeSession, ChallengeSession.id == ChallengeItem.session_id)
+                     .where(ChallengeSession.user_id == user.id, ChallengeSession.status == "active",
+                            ChallengeSession.deadline_at > chsvc.now(), ChallengeItem.exercise_id == ex.id)) > 0
+
+
 @router.get("/{code}/solution")
-def solution(code: str, db: Session = Depends(get_db)):
+def solution(code: str, db: Session = Depends(get_db), user: User | None = Depends(get_optional_user)):
     ex = _get(db, code)
+    if _in_active_challenge(db, user, ex):
+        raise HTTPException(status.HTTP_409_CONFLICT, "โจทย์นี้อยู่ใน challenge ที่กำลังทำอยู่ — ดูเฉลยได้หลังจบ challenge")
     return {"solution_sql": ex.solution_sql, "explanation_md": ex.explanation_md}

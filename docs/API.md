@@ -4,7 +4,7 @@
 - Interactive docs (Swagger UI): **`/api/docs`** · OpenAPI spec: `/api/openapi.json` (สำเนาอยู่ที่ [`docs/openapi.json`](openapi.json))
 - Auth: session cookie `sqlab_session` (httpOnly, SameSite=Lax) ได้จาก register/login
 - Error format: `{"detail": "ข้อความภาษาไทย"}` · validation (422): `{"detail": "...", "errors": [{"field", "message"}]}`
-- Rate limit: execute/run/submit/preview 60 ครั้ง/นาที, auth 10 ครั้ง/นาที, reset 10 ครั้ง/นาที → `429` + header `Retry-After`
+- Rate limit: execute/run/submit/preview 60 ครั้ง/นาที, auth 10 ครั้ง/นาที (`RATE_AUTH_PER_MIN`), reset 10 ครั้ง/นาที → `429` + header `Retry-After`
 
 🔒 = ต้อง login · 👤 = ใช้ได้ทั้ง guest และ user (ผลลัพธ์เพิ่มข้อมูลส่วนตัวเมื่อ login)
 
@@ -145,6 +145,61 @@
 | POST | `/admin/databases/{key}/rebuild` | สร้าง template + read-only ใหม่ แล้วคำนวณ expected ของโจทย์บน DB นั้นใหม่ |
 
 ทุก action ถูกบันทึกใน log: `event=admin_action admin=<id> action=<...> target=<...>`
+
+## Multiple engines (Phase 3)
+Playground endpoints รับ `engine: "postgresql" | "sqlite"` (ค่าเริ่มต้น `postgresql`):
+`POST /playground/execute`, `POST /playground/reset`, `POST /saved-queries` (บันทึก engine), `GET /databases/{key}?mode=&engine=`, `GET /databases/{key}/tables/{table}/preview?engine=` · รายการ History/Saved คืน `engine`
+SQLite error `kind`: `timeout` (เกิน `QUERY_TIMEOUT_MS`), `permission` (ATTACH, load_extension, PRAGMA ที่ไม่อนุญาต, เขียนในโหมด read-only), `limit` (ฐานข้อมูลส่วนตัวเกินขนาด)
+
+## Execution plan & optimization 👤 (Phase 3)
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/plans/explain` | `{sql, db_key, engine, mode, analyze}` (1 statement) → `{ok, plan: {engine, root: PlanNode, total_cost, execution_ms, …}, summary: {nodes, seq_scans, indexes_used, total_cost, execution_ms}, findings}` (ล้มเหลว: `{ok: false, error, sqlstate}`) · `analyze` ใช้ได้กับ PostgreSQL; คำสั่งที่แก้ข้อมูลถูก rollback · `mode: writable` ต้อง 🔒 |
+| POST | `/plans/index-lab` 🔒 | `{sql, index_sql, db_key}` — `index_sql` รับเฉพาะ `CREATE INDEX` ≤ 3 คำสั่ง · รัน EXPLAIN ANALYZE ก่อน/หลังบนสำเนาฐานข้อมูลใหม่ → `{ok, before, after, summary_before, summary_after, new_indexes_used, speedup, verdict, note}` |
+
+## SQL dialects 👤 (Phase 3)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/dialects/reference` | 24 หัวข้อ: วิธีเขียนใน PostgreSQL / SQLite / MySQL + หมายเหตุ |
+| POST | `/dialects/compare` | `{sql, db_key}` → รันบน PostgreSQL และ SQLite (read-only) → `{postgresql, sqlite, comparison: {same, message, details}, features}` |
+
+## Database design & CSV import (Phase 3)
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/designs/ddl` 👤 | `{tables, relations}` → `{issues: [{level: error\|warning, message}], mermaid, ddl: {postgresql, sqlite, mysql} \| null}` (`ddl` เป็น null ถ้ามี error) |
+| GET | `/designs/from-db/{key}` 👤 | reverse-engineer sample DB เป็น design |
+| GET / POST | `/designs` 🔒 | แบบของฉัน / บันทึกแบบใหม่ `{name, design}` (ต้องไม่มี error) |
+| GET / PUT / DELETE | `/designs/{id}` 🔒 | เฉพาะเจ้าของ (คนอื่นได้ `404`) |
+| POST | `/designs/{id}/apply` 🔒 | `{engine}` → **ล้าง** ฐานข้อมูล `blank` ของผู้ใช้ (Writable) แล้วรัน DDL |
+| POST | `/csv/preview` 🔒 | `{csv_text, delimiter: , ; \| tab, has_header}` → `{columns: [{name, type, nulls, sample}], row_count, sample}` |
+| POST | `/csv/import` 🔒 | `{csv_text, delimiter, has_header, db_key: "blank", engine, table_name, columns?, replace}` → นำเข้าใน Writable sandbox · `422` พร้อมเหตุผลถ้ามีตารางอยู่แล้วและไม่ได้เลือก `replace` หรือข้อมูลแปลงตามชนิดไม่ได้ · จำกัด 5 MB / 50,000 แถว / 100 คอลัมน์ |
+
+## Challenges, mock interview & leaderboard (Phase 3)
+| Method | Path | Notes |
+|---|---|---|
+| POST | `/challenges` 🔒 | `{kind: timed\|random\|interview, count?, minutes?, difficulty?, category?}` → session (`items` ไม่มีเฉลย, `remaining_seconds` จาก server) · `409` ถ้ามี session ที่ยังไม่จบ ≥ 3 หรือโจทย์ตามเงื่อนไขไม่พอ |
+| GET | `/challenges` 🔒 | ประวัติ 30 รายการล่าสุด |
+| GET | `/challenges/{id}` 🔒 | session + `report` เมื่อจบ (มี `rubric` สำหรับ interview) · ของคนอื่นได้ `404` |
+| POST | `/challenges/{id}/items/{pos}/submit` 🔒 | `{sql, approach?}` → `{correct, message, points_awarded, execution, session_status, new_achievements}` · หลัง deadline ได้ `409` |
+| POST | `/challenges/{id}/items/{pos}/hint` 🔒 | เปิด hint ถัดไป (คะแนนข้อนั้น ×0.9) |
+| POST | `/challenges/{id}/items/{pos}/approach` 🔒 | บันทึกคำอธิบายแนวคิด (interview) |
+| POST | `/challenges/{id}/finish` 🔒 | จบ session → report |
+| GET | `/leaderboard?board=points\|challenges&period=week\|all` 👤 | top 20 `{rank, display_name, score, count}` + `me`, `me_hidden` |
+| PATCH | `/me/settings` 🔒 | `{show_on_leaderboard}` |
+
+ระหว่างที่โจทย์อยู่ใน challenge ที่ยัง active ของผู้ใช้: `GET /exercises/{code}/solution` ได้ `409` และ `POST /exercises/{code}/submit` ไม่คืน `solution_sql`/`explanation_md`
+
+## Community (Phase 3)
+| Method | Path | Notes |
+|---|---|---|
+| GET | `/discussions?target_type=exercise\|lesson&target_key=&reveal_spoilers=` 👤 | กระทู้ (ตอบกลับ 1 ระดับ) เรียงตามโหวต · โพสต์ spoiler บนโจทย์ได้ `body: null, spoiler_locked: true` จนกว่าจะทำโจทย์ถูกหรือส่ง `reveal_spoilers=true` |
+| POST | `/discussions` 🔒 | `{target_type, target_key, body, is_spoiler, parent_id?}` · โพสต์บนโจทย์ที่มี ```sql เป็น spoiler อัตโนมัติ · 10 โพสต์/นาที |
+| PATCH / DELETE | `/discussions/{id}` 🔒 | เจ้าของ (DELETE: admin ได้ด้วย) |
+| POST | `/discussions/{id}/vote` 🔒 | toggle · โหวตโพสต์ตัวเองไม่ได้ (`409`) |
+| POST | `/discussions/{id}/report` 🔒 | `{reason}` → คิว moderation |
+| GET | `/admin/reports` 🛡️ | รายงานที่ยังไม่ปิด |
+| POST | `/admin/posts/{id}/hide` 🛡️ | `{hidden}` · ซ่อนแล้วปิดรายงานของโพสต์นั้น |
+| POST | `/admin/reports/{id}/resolve` 🛡️ | ปิดรายงาน (ไม่ผิดกฎ) |
 
 ## Health
 `GET /api/health` → `{"status": "ok"}`

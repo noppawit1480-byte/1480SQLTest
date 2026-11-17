@@ -39,6 +39,9 @@ class Settings(BaseSettings):
 
     timezone: str = "Asia/Bangkok"
 
+    # SQLite engine: exported sample DBs + per-user writable copies (must be a writable directory)
+    sqlite_dir: str = "var/sqlite"
+
     # SQL Learning Assistant (AI layer is optional; provider keys are read from the environment only)
     rate_assistant_per_min: int = 30
     rate_assistant_ai_per_min: int = 6

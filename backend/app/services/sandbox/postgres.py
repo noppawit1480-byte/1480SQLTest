@@ -188,6 +188,25 @@ class PostgresSandbox:
         finally:
             self._drop_database(dbname)
 
+    def run_scripts_on_fresh_copy(self, user_id: int, db_key: str, scripts: list[str],
+                                  stop_on_error: bool = True) -> list[ExecutionResult]:
+        """Run several scripts in order on one throwaway copy (e.g. EXPLAIN → CREATE INDEX → EXPLAIN)."""
+        self._check_key(db_key)
+        self.ensure_role(user_id)
+        dbname = f"lab_{int(user_id)}_{secrets.token_hex(4)}"
+        self._clone_template(db_key, dbname, user_role(user_id))
+        try:
+            target = Target(db_key, dbname, user_role(user_id), self._role_password(user_id), "writable")
+            out = []
+            for sql_text in scripts:
+                res = self.execute(target, sql_text)
+                out.append(res)
+                if stop_on_error and not res.ok:
+                    break
+            return out
+        finally:
+            self._drop_database(dbname)
+
     def _precheck(self, sql_text: str) -> ExecutionResult | None:
         if not sql_text.strip():
             return ExecutionResult(False, [], 0, 0, ExecError("กรุณาพิมพ์คำสั่ง SQL ก่อนรัน", kind="limit"))

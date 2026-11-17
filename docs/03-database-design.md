@@ -191,6 +191,73 @@ erDiagram
 - `lessons`, `exercises` เพิ่ม `is_custom`, `admin_edited` (content governance) และ `exercises.project_id`
 - `assistant_logs` ไม่เก็บ prompt/คำตอบ — เก็บเฉพาะ metadata สำหรับสถิติและโควตา
 
+### Phase 3 additions (migration `0003_phase3.py`)
+```mermaid
+erDiagram
+  users ||--o{ er_designs : owns
+  users ||--o{ challenge_sessions : plays
+  challenge_sessions ||--|{ challenge_items : contains
+  exercises ||--o{ challenge_items : "picked as"
+  users ||--o{ posts : writes
+  posts ||--o{ posts : "replies (parent_id)"
+  posts ||--o{ post_votes : receives
+  users ||--o{ post_votes : casts
+  posts ||--o{ post_reports : "reported in"
+  er_designs {
+    int id PK
+    int user_id FK
+    text name
+    jsonb design "tables + relations"
+  }
+  challenge_sessions {
+    int id PK
+    int user_id FK
+    text kind "timed | random | interview"
+    jsonb config
+    text status "active | finished | expired"
+    int score
+    timestamptz started_at
+    timestamptz deadline_at "enforced by server"
+    timestamptz finished_at
+  }
+  challenge_items {
+    int session_id PK, FK
+    int position PK
+    int exercise_id FK
+    int attempts
+    int hints_used
+    timestamptz solved_at
+    int points
+    text last_sql
+    text approach_text "mock interview"
+  }
+  posts {
+    int id PK
+    int user_id FK
+    text target_type "exercise | lesson"
+    text target_key
+    int parent_id FK
+    text body
+    bool is_spoiler
+    bool is_hidden
+  }
+  post_votes {
+    int user_id PK, FK
+    int post_id PK, FK
+  }
+  post_reports {
+    int id PK
+    int post_id FK
+    int user_id FK
+    text reason
+    bool resolved
+  }
+```
+- `users.show_on_leaderboard` (opt-out) · `exercises.is_interview` (ชุดโจทย์ Mock Interview ไม่ปนกับแบบฝึกหัด) · `query_history.engine`, `saved_queries.engine`
+- `posts` อ้างเป้าหมายด้วย `(target_type, target_key)` + index แทน FK สองชุด เพราะบทเรียน/โจทย์อาจถูกแก้รหัสโดย admin และกระทู้ควรอยู่ต่อ
+- Leaderboard คำนวณสดจาก `submissions` (คำตอบถูกครั้งแรกของแต่ละข้อ) และ `challenge_sessions` — ไม่มีตารางสรุปที่ต้อง sync
+- ฐานข้อมูล SQLite ไม่อยู่ใน main DB: เป็นไฟล์ใน `var/sqlite/` (ดู architecture §3.3)
+
 ## 2. Design decisions
 | เรื่อง | การตัดสินใจ | เหตุผล |
 |---|---|---|
@@ -212,6 +279,7 @@ erDiagram
 | `hospital` | patients, doctors, appointments, treatments | appointment ถูกยกเลิก (ไม่มี treatment), แพทย์ไม่มีนัด, ผู้ป่วยไม่มี phone |
 | `music_store` | artists, albums, tracks, playlists, playlist_tracks, invoices, invoice_items | ศิลปินไม่มีอัลบั้ม, track ไม่เคยขาย, composer NULL, playlist ว่าง |
 | `saas` *(advanced, Phase 2)* | plans, companies, users, subscriptions, invoices, events (JSONB, ~43k) | แพ็กเกจ Legacy ที่ปิดขาย, trial ที่ไม่ convert, บริษัทที่ churn, ผู้ใช้ไม่เคยกลับมา (last_seen NULL), event ที่ properties ว่าง, invoice ค้างชำระ |
+| `blank` *(Phase 3)* | — (ว่าง) | พื้นที่สำหรับสร้างตารางจาก DB Designer และนำเข้า CSV ใน Writable sandbox ของแต่ละผู้ใช้ |
 
 > `playlist_tracks` เพิ่มเป็น junction table ที่จำเป็นสำหรับความสัมพันธ์ many-to-many ระหว่าง playlists ↔ tracks
 

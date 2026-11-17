@@ -69,6 +69,7 @@ services:
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       QUERY_TIMEOUT_MS: ${QUERY_TIMEOUT_MS:-5000}
       MAX_RESULT_ROWS: ${MAX_RESULT_ROWS:-1000}
+      RATE_AUTH_PER_MIN: ${RATE_AUTH_PER_MIN:-10}   # raise only for automated E2E runs
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-}
       # SQL Learning Assistant — AI layer is optional; the key stays server-side
@@ -77,6 +78,8 @@ services:
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       ASSISTANT_AI_DAILY_LIMIT: ${ASSISTANT_AI_DAILY_LIMIT:-60}
     # outbound HTTPS is needed only to reach the AI provider; the sandbox network stays internal
+    # SQLite engine (Phase 3): read-only exports + learners' writable copies
+    volumes: ["sqlite-data:/app/var"]
     networks: [web, core, sandbox]
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
@@ -102,3 +105,4 @@ networks:
 volumes:
   main-data: {}
   sandbox-data: {}
+  sqlite-data: {}

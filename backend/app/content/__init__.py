@@ -22,5 +22,6 @@ SAMPLE_DATABASES = [
     ("banking", "Banking", "ธนาคาร: ลูกค้า บัญชี ธุรกรรม (ยอดบวก/ลบ) และสินเชื่อ"),
     ("hospital", "Hospital", "โรงพยาบาล: ผู้ป่วย แพทย์ นัดหมาย และการรักษา"),
     ("music_store", "Music Store", "ร้านขายเพลงดิจิทัล: ศิลปิน อัลบั้ม เพลง เพลย์ลิสต์ ใบแจ้งหนี้ และรายการขาย"),
+    ("blank", "Blank (ฐานข้อมูลว่าง)", "ฐานข้อมูลว่างสำหรับออกแบบตารางเอง (ER Diagram Builder), นำเข้า CSV และฝึก CREATE TABLE ตั้งแต่ศูนย์ — ใช้ในโหมด Writable sandbox"),
     ("saas", "SaaS Analytics (Advanced)", "ธุรกิจซอฟต์แวร์แบบสมาชิก: แพ็กเกจ บริษัทลูกค้า ผู้ใช้ ประวัติ subscription (MRR) ใบแจ้งหนี้ และ event stream แบบ JSONB ~43,000 แถว — สำหรับ retention, churn, cohort และ JSON"),
 ]

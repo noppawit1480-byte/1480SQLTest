@@ -27,6 +27,8 @@ ACHIEVEMENTS = [
     ("sql_professional", "SQL Professional", "สะสมคะแนนถึงระดับ Professional (1,000 คะแนน)", "trophy"),
     ("real_world_analyst", "Real-World Analyst", "ทำ Real-World Project สำเร็จครบทุกงาน 1 โปรเจกต์", "briefcase"),
     ("project_master", "Project Master", "ทำ Real-World Projects สำเร็จครบทุกโปรเจกต์", "crown"),
+    ("beat_the_clock", "Beat the Clock", "ทำ Timed Challenge ถูกครบทุกข้อก่อนหมดเวลา", "timer"),
+    ("interview_ready", "Interview Ready", "ผ่าน Mock SQL Interview ด้วยคะแนนรวมตั้งแต่ 70%", "mic"),
 ]
 
 
@@ -126,9 +128,10 @@ def dashboard(db: Session, user_id: int) -> dict:
     total_lessons = db.scalar(select(func.count()).select_from(Lesson)) or 0
     done_lessons = db.scalar(select(func.count()).select_from(LessonProgress).where(
         LessonProgress.user_id == user_id, LessonProgress.status == "completed")) or 0
-    total_ex = db.scalar(select(func.count()).select_from(Exercise).where(Exercise.project_id.is_(None))) or 0
+    practice = (Exercise.project_id.is_(None), Exercise.is_interview.is_(False))
+    total_ex = db.scalar(select(func.count()).select_from(Exercise).where(*practice)) or 0
     solved = db.scalar(select(func.count(distinct(Submission.exercise_id))).join(Exercise, Exercise.id == Submission.exercise_id)
-                       .where(Submission.user_id == user_id, Submission.is_correct, Exercise.project_id.is_(None))) or 0
+                       .where(Submission.user_id == user_id, Submission.is_correct, *practice)) or 0
     pp = project_progress(db, user_id)
     projects_done = sum(1 for p in pp.values() if p["total"] and p["solved"] == p["total"])
     subs, correct = db.execute(select(func.count(), func.count().filter(Submission.is_correct)).where(

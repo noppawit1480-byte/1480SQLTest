@@ -19,6 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.content import COURSES, SAMPLE_DATABASES
 from app.content.exercises import ALL as EXERCISES
+from app.content.interview import QUESTIONS as INTERVIEW
 from app.content.projects import PROJECTS
 from app.content.model import POINTS
 from app.db import SessionLocal
@@ -45,7 +46,7 @@ def validate_content() -> None:
             missing = [r for r in lesson.related if r not in known]
             if missing:
                 raise SeedError(f"lesson {lesson.slug}: unknown related slugs {missing}")
-    all_ex = EXERCISES + [t for p in PROJECTS for t in p.tasks]
+    all_ex = EXERCISES + INTERVIEW + [t for p in PROJECTS for t in p.tasks]
     codes = [e.code for e in all_ex]
     if len(codes) != len(set(codes)):
         raise SeedError("duplicate exercise codes")
@@ -61,7 +62,7 @@ def validate_content() -> None:
             raise SeedError(f"{e.code}: bad difficulty")
         if e.check_type == "dml" and not e.check_sql:
             raise SeedError(f"{e.code}: dml exercise needs check_sql")
-    without = known - {e.lesson for e in EXERCISES}
+    without = known - {e.lesson for e in EXERCISES}  # interview questions are not tied to lessons
     if without:
         raise SeedError(f"lessons without an end-of-lesson exercise: {sorted(without)}")
 
@@ -72,6 +73,11 @@ def seed(db: Session, rebuild: bool = False) -> None:
     created = sb.provision_templates(force=rebuild)
     log.info("sandbox templates ready (created: %s)", created or "none")
     sb.ensure_role(SYSTEM_USER_ID)
+    from app.services.sandbox.sqlite_engine import get_sqlite
+    sq = get_sqlite()
+    for key, *_ in SAMPLE_DATABASES:  # SQLite copies of every sample DB (second engine)
+        if rebuild or key in created or not sq.ro_path(key).exists():
+            sq.export(key)
 
     for i, (key, name, desc) in enumerate(SAMPLE_DATABASES):
         row = db.get(SampleDatabase, key) or SampleDatabase(key=key)
@@ -127,7 +133,7 @@ def seed(db: Session, rebuild: bool = False) -> None:
 
     failures = []
     task_pos = {t.code: i for p in PROJECTS for i, t in enumerate(p.tasks)}
-    for pos, xdef in enumerate(EXERCISES + [t for p in PROJECTS for t in p.tasks]):
+    for pos, xdef in enumerate(EXERCISES + INTERVIEW + [t for p in PROJECTS for t in p.tasks]):
         existing = db.scalar(select(Exercise).where(Exercise.code == xdef.code))
         if existing is not None and existing.admin_edited:
             continue
@@ -145,11 +151,12 @@ def seed(db: Session, rebuild: bool = False) -> None:
         ex.hints, ex.explanation_md = xdef.hints, xdef.explanation
         ex.lesson_id = lesson_ids.get(xdef.lesson) if xdef.lesson else None
         ex.project_id = project_ids.get(xdef.project) if xdef.project else None
+        ex.is_interview = xdef.interview
         ex.position = task_pos.get(xdef.code, pos)
         db.add(ex)
     if failures:
         raise SeedError("exercise solutions failed:\n  " + "\n  ".join(failures))
-    seeded_codes = [e.code for e in EXERCISES] + [t.code for p in PROJECTS for t in p.tasks]
+    seeded_codes = [e.code for e in EXERCISES + INTERVIEW] + [t.code for p in PROJECTS for t in p.tasks]
     db.execute(delete(Exercise).where(Exercise.code.not_in(seeded_codes), Exercise.is_custom.is_(False),
                                       Exercise.admin_edited.is_(False)))
 
@@ -160,8 +167,8 @@ def seed(db: Session, rebuild: bool = False) -> None:
             db.add(User(email=admin_email.lower(), display_name="Admin", password_hash=hash_password(admin_pw), role="admin"))
             log.info("created admin user %s", admin_email)
     db.commit()
-    log.info("seed complete: %d lessons, %d exercises, %d projects (%d tasks)", len(lesson_ids), len(EXERCISES),
-             len(PROJECTS), len(task_pos))
+    log.info("seed complete: %d lessons, %d exercises, %d interview questions, %d projects (%d tasks)", len(lesson_ids),
+             len(EXERCISES), len(INTERVIEW), len(PROJECTS), len(task_pos))
 
 
 def main() -> None:

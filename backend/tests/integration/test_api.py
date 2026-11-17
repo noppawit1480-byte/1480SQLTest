@@ -206,7 +206,7 @@ def test_validate_endpoint(anon):
 
 def test_databases_and_er(anon):
     dbs = anon.get("/api/databases").json()
-    assert {d["key"] for d in dbs} == {"ecommerce", "hr", "banking", "hospital", "music_store", "saas"}
+    assert {"ecommerce", "hr", "banking", "hospital", "music_store", "saas"} <= {d["key"] for d in dbs}
     hr = anon.get("/api/databases/hr").json()
     assert "employees |o--o{ employees" in hr["er_mermaid"]
     assert anon.get("/api/databases/hr/tables/employees/preview").json()["result_sets"][0]["row_count"] > 0

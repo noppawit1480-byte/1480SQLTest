@@ -55,6 +55,7 @@ class ExerciseDef:
     check_sql: str | None = None        # dml only: query whose result is compared after running the answer
     check_column_names: bool = True
     project: str | None = None          # slug of the real-world project this task belongs to
+    interview: bool = False             # part of the mock-interview pool (hidden from the practice list)
 
 
 @dataclass

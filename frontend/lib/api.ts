@@ -49,4 +49,6 @@ export const ACHIEVEMENT_TITLES: Record<string, string> = {
   sql_professional: "SQL Professional",
   real_world_analyst: "Real-World Analyst",
   project_master: "Project Master",
+  beat_the_clock: "Beat the Clock",
+  interview_ready: "Interview Ready",
 };

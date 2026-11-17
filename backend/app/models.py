@@ -19,6 +19,7 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(Text, nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False, server_default="learner")
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
+    show_on_leaderboard: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="true")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
 
 
@@ -91,6 +92,8 @@ class Exercise(Base):
     explanation_md: Mapped[str] = mapped_column(Text, nullable=False)
     lesson_id: Mapped[int | None] = mapped_column(ForeignKey("lessons.id", ondelete="SET NULL"), index=True)
     project_id: Mapped[int | None] = mapped_column(ForeignKey("projects.id", ondelete="CASCADE"), index=True)
+    # interview questions live in the mock-interview pool, not in the practice list
+    is_interview: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     position: Mapped[int] = mapped_column(Integer, nullable=False)
     is_custom: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     admin_edited: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
@@ -142,6 +145,7 @@ class QueryHistory(Base):
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     db_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    engine: Mapped[str] = mapped_column(String(20), nullable=False, server_default="postgresql")
     mode: Mapped[str] = mapped_column(String(10), nullable=False)
     sql: Mapped[str] = mapped_column(Text, nullable=False)
     success: Mapped[bool] = mapped_column(Boolean, nullable=False)
@@ -157,6 +161,7 @@ class SavedQuery(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
     title: Mapped[str] = mapped_column(String(120), nullable=False)
     db_key: Mapped[str] = mapped_column(String(40), nullable=False)
+    engine: Mapped[str] = mapped_column(String(20), nullable=False, server_default="postgresql")
     sql: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
@@ -229,4 +234,74 @@ class GeneratedExercise(Base):
     expected: Mapped[dict] = mapped_column(JSONB, nullable=False)
     order_matters: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     solved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ErDesign(Base):
+    """A learner's schema design from the ER Diagram Builder (tables/columns/relations as JSON)."""
+    __tablename__ = "er_designs"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(120), nullable=False)
+    design: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+
+
+class ChallengeSession(Base):
+    """Timed challenge, random challenge or mock interview. Deadlines are enforced server-side."""
+    __tablename__ = "challenge_sessions"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    kind: Mapped[str] = mapped_column(String(12), nullable=False)          # timed | random | interview
+    config: Mapped[dict] = mapped_column(JSONB, nullable=False, server_default="{}")
+    status: Mapped[str] = mapped_column(String(12), nullable=False, server_default="active")  # active | finished | expired
+    score: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    started_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    deadline_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class ChallengeItem(Base):
+    __tablename__ = "challenge_items"
+    session_id: Mapped[int] = mapped_column(ForeignKey("challenge_sessions.id", ondelete="CASCADE"), primary_key=True)
+    position: Mapped[int] = mapped_column(Integer, primary_key=True)
+    exercise_id: Mapped[int] = mapped_column(ForeignKey("exercises.id", ondelete="CASCADE"), nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    hints_used: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    solved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    points: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    last_sql: Mapped[str | None] = mapped_column(Text)
+    approach_text: Mapped[str | None] = mapped_column(Text)              # mock interview: "explain your approach"
+
+
+class Post(Base):
+    """Community discussion post on an exercise or lesson (parent_id = reply)."""
+    __tablename__ = "posts"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(10), nullable=False)   # exercise | lesson
+    target_key: Mapped[str] = mapped_column(String(80), nullable=False)
+    parent_id: Mapped[int | None] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"))
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    is_spoiler: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    is_hidden: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
+    __table_args__ = (Index("ix_posts_target", "target_type", "target_key", "created_at"),)
+
+
+class PostVote(Base):
+    __tablename__ = "post_votes"
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"), primary_key=True)
+
+
+class PostReport(Base):
+    __tablename__ = "post_reports"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    post_id: Mapped[int] = mapped_column(ForeignKey("posts.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    reason: Mapped[str] = mapped_column(String(300), nullable=False)
+    resolved: Mapped[bool] = mapped_column(Boolean, nullable=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)

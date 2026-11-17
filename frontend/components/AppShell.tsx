@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import {
-  BookOpen, Bot, Database, Shield, Dumbbell, FolderKanban, LayoutDashboard, LogIn, LogOut, Menu, Moon, Sun, Terminal, User, X,
+  BookOpen, Bot, Database, Gauge, Languages, Shapes, Shield, Dumbbell, Timer, Trophy, FolderKanban, LayoutDashboard, LogIn, LogOut, Menu, Moon, Sun, Terminal, User, X,
 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth, useTheme } from "./providers";
@@ -18,11 +18,16 @@ const NAV: { href: string; label: string; icon: typeof BookOpen; auth?: boolean;
   { href: "/assistant", label: "Assistant", icon: Bot },
   { href: "/databases", label: "Databases", icon: Database },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/challenges", label: "Challenges", icon: Timer },
+  { href: "/leaderboard", label: "Leaderboard", icon: Trophy },
+  { href: "/designer", label: "DB Designer", icon: Shapes },
+  { href: "/optimize", label: "Optimization", icon: Gauge },
+  { href: "/dialects", label: "SQL Dialects", icon: Languages },
   { href: "/profile", label: "โปรไฟล์", icon: User, auth: true },
   { href: "/admin", label: "Admin", icon: Shield, auth: true, admin: true },
 ];
 
-const FULL_BLEED = ["/playground", "/practice/", "/assistant/practice/"];
+const FULL_BLEED = ["/playground", "/practice/", "/assistant/practice/", "/challenges/"];
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
