@@ -9,7 +9,7 @@ import { useApi } from "@/lib/hooks";
 import type { Difficulty } from "@/lib/types";
 import { AdminGuard } from "@/components/AdminGuard";
 import { useAuth, useTheme, useToast } from "@/components/providers";
-import { Badge, Button, ButtonLink, Card, cx, DifficultyBadge, ErrorState, PageHeader, Spinner, StatCard } from "@/components/ui";
+import { Badge, Button, ButtonLink, Card, cx, DifficultyBadge, EmptyState, ErrorState, PageHeader, Spinner, StatCard } from "@/components/ui";
 
 interface Stats {
   users: { total: number; new_7d: number; active_today: number; active_7d: number };
@@ -28,7 +28,7 @@ interface AdminAch { key: string; title: string; description: string; icon: stri
 interface AdminDb { key: string; name: string; description: string; engine: string; tables: number; rows: number; exercises: number }
 
 const TABS = [["overview", "ภาพรวม"], ["users", "ผู้ใช้"], ["lessons", "บทเรียน"], ["exercises", "โจทย์"], ["projects", "Projects"],
-  ["achievements", "Achievements"], ["databases", "ฐานข้อมูล"]] as const;
+  ["achievements", "Achievements"], ["databases", "ฐานข้อมูล"], ["reports", "รายงานโพสต์"]] as const;
 type Tab = (typeof TABS)[number][0];
 
 function EditBadges({ custom, edited }: { custom: boolean; edited: boolean }) {
@@ -222,6 +222,34 @@ function AchievementsTab() {
   );
 }
 
+interface Report { id: number; reason: string; created_at: string; post: { id: number; body: string; target_type: string; target_key: string; is_hidden: boolean } }
+
+function ReportsTab() {
+  const toast = useToast();
+  const { data, loading, reload } = useApi<Report[]>("/admin/reports");
+  async function act(fn: () => Promise<unknown>, msg: string) {
+    try { await fn(); toast.push("ok", msg); reload(); } catch (e) { toast.push("err", (e as ApiError).message); }
+  }
+  if (loading) return <Spinner />;
+  if (!data?.length) return <EmptyState title="ไม่มีรายงานที่รอตรวจ" />;
+  return (
+    <ul className="space-y-3" data-testid="admin-reports">{data.map((r) => {
+      const link = r.post.target_type === "exercise" ? `/practice/${r.post.target_key}` : null;
+      return (
+        <li key={r.id}><Card>
+          <div className="text-xs text-muted">รายงานเมื่อ {new Date(r.created_at).toLocaleString("th-TH")} · {r.post.target_type}: {link ? <Link className="underline" href={link}>{r.post.target_key}</Link> : r.post.target_key}
+            {r.post.is_hidden && <Badge className="ml-2 !text-bad">ซ่อนอยู่</Badge>}</div>
+          <p className="mt-1 text-sm"><b>เหตุผล:</b> {r.reason}</p>
+          <pre className="mt-2 max-h-40 overflow-auto whitespace-pre-wrap rounded bg-surface-2 p-2 text-xs">{r.post.body}</pre>
+          <div className="mt-2 flex gap-2">
+            {!r.post.is_hidden && <Button size="sm" variant="danger" onClick={() => act(() => api.post(`/admin/posts/${r.post.id}/hide`, { hidden: true }), "ซ่อนโพสต์แล้ว")}>ซ่อนโพสต์</Button>}
+            <Button size="sm" variant="ghost" onClick={() => act(() => api.post(`/admin/reports/${r.id}/resolve`), "ปิดรายงานแล้ว")}>ไม่ผิดกฎ — ปิดรายงาน</Button>
+          </div>
+        </Card></li>);
+    })}</ul>
+  );
+}
+
 function DatabasesTab() {
   const toast = useToast();
   const { data, loading, reload } = useApi<AdminDb[]>("/admin/databases");
@@ -265,6 +293,7 @@ export default function AdminPage() {
       {tab === "projects" && <ProjectsTab />}
       {tab === "achievements" && <AchievementsTab />}
       {tab === "databases" && <DatabasesTab />}
+      {tab === "reports" && <ReportsTab />}
     </AdminGuard>
   );
 }

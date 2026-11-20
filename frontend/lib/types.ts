@@ -218,6 +218,7 @@ export interface Dashboard {
 export interface HistoryItem {
   id: number;
   db_key: string;
+  engine?: string;
   mode: Mode;
   sql: string;
   success: boolean;
@@ -230,6 +231,7 @@ export interface SavedQuery {
   id: number;
   title: string;
   db_key: string;
+  engine?: string;
   sql: string;
   updated_at: string;
 }
@@ -304,4 +306,65 @@ export interface GeneratedPractice {
   solved: boolean;
   expected: { columns: ColumnInfo[]; rows: unknown[][]; row_count: number };
   created_at: string | null;
+}
+
+// ---------------------------------------------------------------- Phase 3
+export type Engine = "postgresql" | "sqlite";
+
+export interface PlanNode {
+  id: number;
+  label: string;
+  relation?: string | null;
+  alias?: string | null;
+  index?: string | null;
+  detail: string[];
+  est_rows?: number | null;
+  est_cost?: number | null;
+  actual_rows?: number | null;
+  loops?: number | null;
+  time_ms?: number | null;
+  misestimate?: number;
+  children: PlanNode[];
+}
+
+export interface Plan {
+  engine: Engine;
+  root: PlanNode;
+  planning_ms: number | null;
+  execution_ms: number | null;
+  total_cost: number | null;
+  analyzed: boolean;
+}
+
+export interface PlanSummary { nodes: number; seq_scans: string[]; indexes_used: string[]; total_cost: number | null; execution_ms: number | null }
+
+export interface ExplainResponse { ok: boolean; error?: string; plan?: Plan; summary?: PlanSummary; findings?: AssistantFinding[] }
+
+export interface DialectFeature { key: string; title: string; postgresql: string; sqlite: string; mysql: string; sqlserver: string; note: string }
+
+export interface DesignColumn { name: string; type: string; pk?: boolean; not_null?: boolean; unique?: boolean; identity?: boolean; default?: string | null }
+export interface DesignTable { name: string; columns: DesignColumn[]; x?: number; y?: number }
+export interface DesignRelation { from_table: string; from_column: string; to_table: string; to_column: string; on_delete?: string }
+export interface Design { tables: DesignTable[]; relations: DesignRelation[] }
+
+export interface ChallengeItemView {
+  position: number; code: string; title: string; description_md: string; difficulty: Difficulty; category: string; points: number;
+  sample_db: string; order_matters: boolean; expected: { columns: ColumnInfo[]; rows: unknown[][]; row_count: number };
+  hints: string[]; hints_total: number; solved: boolean; attempts: number; points_awarded: number; approach_text: string | null; last_sql: string | null;
+}
+
+export interface ChallengeReport {
+  solved: number; total: number; score: number; max_score: number; seconds_used: number;
+  items: { position: number; code: string; title: string; difficulty: Difficulty; solved: boolean; attempts: number; hints_used: number; points: number; seconds_to_solve: number | null; approach_text: string | null }[];
+  rubric?: { overall: number; passed: boolean; criteria: { name: string; weight: number; score: number; note: string }[] };
+}
+
+export interface ChallengeSessionView {
+  id: number; kind: "timed" | "random" | "interview"; status: "active" | "finished" | "expired"; config: { count: number; minutes: number; difficulty?: string | null; category?: string | null };
+  score: number; started_at: string; deadline_at: string; remaining_seconds: number; items: ChallengeItemView[]; report?: ChallengeReport;
+}
+
+export interface DiscussionPost {
+  id: number; author: string; is_mine: boolean; body: string | null; is_spoiler: boolean; spoiler_locked: boolean; is_hidden: boolean;
+  votes: number; voted: boolean; created_at: string; edited: boolean; replies: DiscussionPost[];
 }

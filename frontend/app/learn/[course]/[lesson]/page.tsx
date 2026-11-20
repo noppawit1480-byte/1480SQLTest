@@ -1,5 +1,6 @@
 "use client";
 
+import { Discussion } from "@/components/Discussion";
 import Link from "next/link";
 import { use, useEffect, useState } from "react";
 import {
@@ -186,6 +187,8 @@ export default function LessonPage({ params }: { params: Promise<{ course: strin
             </div>
           </div>
         )}
+
+        <div className="mt-10 border-t border-line pt-6"><Discussion targetType="lesson" targetKey={slug} /></div>
       </article>
 
       <aside className="sticky top-0 hidden w-60 shrink-0 self-start xl:block">

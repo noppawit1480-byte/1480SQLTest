@@ -49,16 +49,19 @@ backend/app
 ├── ratelimit.py         # token-bucket rate limiter
 ├── routers/             # HTTP layer เท่านั้น (บาง)
 │   auth · me · learn · practice · projects · playground (+ databases, saved queries) · assistant · admin
+│   Phase 3: dialects · optimize (plans) · designs · imports (csv) · challenges (+ leaderboard) · discussions
 ├── services/            # business logic (ไม่รู้จัก HTTP)
 │   ├── sandbox/         # base.py (EngineAdapter protocol, result types) + postgres.py (executor + provisioning)
+│   │                    # + sqlite_engine.py / sqlite_worker.py (Phase 3)
 │   ├── checker.py       # result-based answer checking (pure functions → unit-testable)
 │   ├── validator.py     # libpg_query syntax validation
 │   ├── sql_split.py     # statement splitting with source offsets
 │   ├── progress.py      # activity, streak, level, accuracy, achievements, projects, dashboard
 │   ├── content.py       # run examples / compute expected results (seeder + admin)
-│   └── assistant/       # rules.py (pglast + EXPLAIN), llm.py (LLMProvider), service.py
+│   ├── assistant/       # rules.py (pglast + EXPLAIN), llm.py (LLMProvider), service.py
+│   └── plans.py · dialects.py · er_design.py · csv_import.py · challenges.py   # Phase 3
 ├── content/             # lessons + exercises (content-as-code)
-├── sample_dbs/          # generator + generated *.sql ของ 5 sample databases
+├── sample_dbs/          # generator + generated *.sql ของ sample databases (+ blank.sql)
 └── seed.py              # provision sandbox + seed content
 ```
 
@@ -84,18 +87,40 @@ backend/app
 | Answer checking (DML) | clone template เป็น DB ชั่วคราว `chk_<uid>_<rand>` → รันคำตอบ → รัน `check_sql` → DROP; expected คำนวณจากเฉลยด้วยวิธีเดียวกันตอน seed → ไม่กระทบ sandbox ของผู้ใช้ และ COMMIT/ROLLBACK ในคำตอบทำงานเหมือน server จริง |
 | Credentials | password ของ `sbx_u_<uid>` = `HMAC-SHA256(SANDBOX_ROLE_SECRET, uid)` คำนวณสด ไม่ต้องเก็บ ไม่ส่งถึง frontend |
 
-### 3.3 EngineAdapter (รองรับ MySQL/SQLite ในอนาคต)
+### 3.3 EngineAdapter และ engine ที่สอง: SQLite (Phase 3)
 ```python
 class EngineAdapter(Protocol):
-    engine: str                                   # "postgresql"
-    def execute(self, target: Target, sql: str) -> ExecutionResult          # read-only targets run in BEGIN READ ONLY
-    def execute_on_fresh_copy(self, user_id, db_key, sql, check_sql) -> ExecutionResult
+    engine: str                                   # "postgresql" | "sqlite"
+    def execute(self, target: Target, sql: str) -> ExecutionResult
     def introspect(self, target: Target) -> list[TableInfo]
     def readonly_target(self, db_key) -> Target
     def ensure_user_db(self, user_id, db_key) -> Target
     def reset_user_db(self, user_id, db_key) -> None
 ```
-Router/Checker ใช้ผ่าน interface นี้ (ปัจจุบันมี implementation เดียวคือ `PostgresSandbox`) — การเพิ่ม MySQL = เพิ่ม `MySQLAdapter` + sample DB scripts ของ dialect นั้น + คอลัมน์ `engine` ที่มีอยู่แล้วในตาราง `sample_databases`/`exercises`
+`get_engine(name)` คืน `PostgresSandbox` หรือ `SqliteSandbox` — Playground, Explain, Designer (apply), CSV import และ Dialect comparison เลือก engine ผ่าน interface นี้
+การตรวจคำตอบแบบฝึกหัด/challenge ยังใช้ PostgreSQL (`execute_on_fresh_copy`, expected คำนวณบน PostgreSQL)
+
+**SQLite sandbox** (`services/sandbox/sqlite_engine.py` + `sqlite_worker.py`)
+| ชั้น | กลไก |
+|---|---|
+| ข้อมูล | ตอน seed/rebuild ทุก sample DB ถูก export จาก `ro_<key>` ของ PostgreSQL เป็น `var/sqlite/ro_<key>.sqlite` (ไฟล์ mode 0444) → ข้อมูลเหมือนกันทุกแถว · Writable = สำเนาส่วนตัว `var/sqlite/users/u_<uid>_<key>.sqlite`, Reset = copy ใหม่ |
+| Process | ทุก request รันใน process ใหม่ `python -I sqlite_worker.py` (stdlib อย่างเดียว) + `setsid` · rlimit: `RLIMIT_AS` 512 MB, `RLIMIT_CPU` = timeout + 2 s, `RLIMIT_FSIZE` = ขนาดสูงสุดของ DB ส่วนตัว, `RLIMIT_NOFILE` 32 · parent ฆ่า process group เมื่อเกินเวลา |
+| SQLite authorizer | ปฏิเสธ `ATTACH`/`DETACH`, PRAGMA ที่ไม่ใช่ introspection, `load_extension`, ทุกการเขียนในโหมด read-only (เปิดไฟล์ด้วย `mode=ro` ด้วย) |
+| Timeout / row cap | `progress_handler` ยกเลิก query เมื่อเกิน `QUERY_TIMEOUT_MS` · ตัดผลที่ `MAX_RESULT_ROWS` เหมือน PostgreSQL |
+| Error mapping | `timeout`, `permission`, `limit` (เกินขนาดไฟล์ → ข้อความที่เข้าใจได้แทน "disk I/O error") |
+| Deploy | volume `sqlite-data` → `/app/var` ของ backend (เขียนได้โดย uid 10001) |
+
+MySQL: **ยังไม่มี implementation** — ไม่มี MySQL server ในสภาพแวดล้อมที่พัฒนา จึงมีเฉพาะ DDL generator และข้อมูลอ้างอิง dialect การเพิ่มทำได้ด้วย `MySQLAdapter` + การ export sample DB แบบเดียวกับ SQLite
+
+### 3.4 Phase 3 features บน sandbox
+| Feature | วิธีทำให้ปลอดภัย |
+|---|---|
+| Explain / Analyze | รับ 1 statement · `EXPLAIN (FORMAT JSON[, ANALYZE, BUFFERS])` ในสิทธิ์เดียวกับการรันปกติ · ANALYZE ของ DML/DDL บน writable target ห่อด้วย `BEGIN … ROLLBACK` · read-only target อยู่ใน `BEGIN READ ONLY` อยู่แล้ว |
+| Index lab | รับเฉพาะ `CREATE INDEX` (ตรวจด้วย pglast, ≤ 3) · รันบนสำเนาชั่วคราวจาก template (`run_scripts_on_fresh_copy`) แล้ว DROP |
+| Designer apply | DDL สร้างจาก design ที่ผ่าน validator (ชื่อ `[a-z_][a-z0-9_]*`, ชนิดจาก allow-list, default จาก allow-list) — ไม่ได้รับ SQL ดิบจากผู้ใช้ · รันใน DB `blank` ของผู้ใช้เท่านั้น |
+| CSV import | ชื่อถูก sanitize, ชนิดจาก allow-list, ค่าเป็น data ของ `COPY` / bound parameter · PostgreSQL ใช้ connection ของ role ผู้ใช้เอง (ไม่ใช่ admin) |
+| Challenges | deadline เก็บใน DB และตรวจทุก submit/hint; session ที่เลยเวลาถูกปิดเป็น `expired` · client timer มีไว้แสดงผลเท่านั้น |
+| Community | spoiler gating ทำที่ server (ไม่ส่ง body) · Markdown render ด้วย react-markdown โดยไม่เปิด raw HTML · rate limit โพสต์/รายงาน · moderation ผ่าน admin |
 
 ## 4. Answer checking algorithm
 1. Execute คำตอบผู้ใช้ (read-only หรือ check-tx) → `actual`

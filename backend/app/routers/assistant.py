@@ -96,7 +96,7 @@ def tutor(body: TutorIn, request: Request, db: Session = Depends(get_db), user: 
     _known_db(db, body.db_key)
     _ai_guard(request, db, user)
     if body.messages[-1].role != "user":
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "ข้อความสุดท้ายต้องเป็นของผู้เรียน")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "ข้อความสุดท้ายต้องเป็นของผู้เรียน")
     try:
         return service.tutor(db, user_id=user.id, messages=[m.model_dump() for m in body.messages],
                              db_key=body.db_key, exercise_code=body.exercise_code)

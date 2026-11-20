@@ -49,15 +49,22 @@ flowchart LR
 /dashboard                ภาพรวมผู้เรียน (auth)
 /learn                    รายการหลักสูตร 4 ระดับ + progress
 /learn/[course]           Table of Contents ของหลักสูตร
-/learn/[course]/[lesson]  บทเรียน
-/playground               SQL Playground (3 panes)
+/learn/[course]/[lesson]  บทเรียน (+ การสนทนาท้ายบท — Phase 3)
+/playground               SQL Playground (3 panes) · engine PostgreSQL/SQLite · แท็บ Plan (Phase 3)
 /practice                 รายการโจทย์ + filter (difficulty / category / status)
-/practice/[code]          ทำโจทย์
-/databases                Sample databases ทั้ง 5
+/practice/[code]          ทำโจทย์ (แท็บ โจทย์ / Schema / สนทนา)
+/databases                Sample databases (6 + blank)
 /databases/[key]          ER diagram + คำอธิบาย table/column + preview
 /profile                  Achievements, bookmarks, notes, saved queries, history (auth)
-/projects                 Phase 2 — แสดงสถานะ "Coming in Phase 2" (ไม่มีปุ่มหลอก)
-/admin                    Phase 2 — เฉพาะ role admin
+/projects  /projects/[slug]   Real-World Projects (Phase 2)
+/assistant                SQL Learning Assistant (Phase 2)
+/admin                    Admin Panel — เฉพาะ role admin (Phase 2; แท็บรายงานโพสต์ Phase 3)
+/challenges               เลือกโหมด Timed / Random / Mock Interview + ประวัติ (Phase 3, auth)
+/challenges/[id]          ทำ challenge (timer จาก server) / รายงานผล + rubric
+/leaderboard              อันดับ + ตั้งค่าซ่อนชื่อ (Phase 3)
+/designer                 ER Diagram Builder + นำเข้า CSV (Phase 3)
+/optimize                 Index optimization lab (Phase 3)
+/dialects                 เทียบ SQL dialects + รันบนสอง engine (Phase 3)
 ```
 
 ## 3. Main screens (wireframes)

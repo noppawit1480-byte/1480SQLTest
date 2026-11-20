@@ -4,7 +4,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
-RUN useradd --create-home --uid 10001 app && chown -R app /app
+# var/ holds the SQLite engine's databases (mounted as a volume in compose)
+RUN useradd --create-home --uid 10001 app && mkdir -p /app/var/sqlite && chown -R app /app
 USER app
 EXPOSE 8000
 # migrations + idempotent seed (also provisions the sandbox) before serving

@@ -5,11 +5,12 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { format } from "sql-formatter";
 import {
-  Bookmark, Bot, Database, Eraser, History, Lock, PanelLeft, Play, RotateCcw, Save, Trash2, Unlock, Wand2,
+  Bookmark, Bot, Database, Eraser, GitBranch, History, Lock, PanelLeft, Play, RotateCcw, Save, Trash2, Unlock, Wand2,
 } from "lucide-react";
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
-import type { DatabaseDetail, DatabaseSummary, ExecutionResult, HistoryItem, Mode, SavedQuery } from "@/lib/types";
+import type { DatabaseDetail, DatabaseSummary, Engine, ExecutionResult, ExplainResponse, HistoryItem, Mode, SavedQuery } from "@/lib/types";
+import { PlanTree } from "@/components/PlanTree";
 import { useAuth, useToast } from "@/components/providers";
 import { AssistantPanel } from "@/components/AssistantPanel";
 import { ResultView } from "@/components/ResultView";
@@ -25,7 +26,7 @@ const DEFAULT_SQL: Record<string, string> = {
   music_store: "SELECT t.genre, COUNT(*) AS tracks, ROUND(AVG(t.milliseconds) / 60000.0, 2) AS avg_minutes\nFROM tracks t\nGROUP BY t.genre\nORDER BY tracks DESC;",
 };
 
-type Panel = "results" | "history" | "saved" | "assistant";
+type Panel = "results" | "plan" | "history" | "saved" | "assistant";
 
 function Playground() {
   const params = useSearchParams();
@@ -33,6 +34,9 @@ function Playground() {
   const toast = useToast();
   const [dbKey, setDbKey] = useState(params.get("db") ?? "ecommerce");
   const [mode, setMode] = useState<Mode>(params.get("mode") === "writable" ? "writable" : "readonly");
+  const [engine, setEngine] = useState<Engine>(params.get("engine") === "sqlite" ? "sqlite" : "postgresql");
+  const [plan, setPlan] = useState<ExplainResponse | null>(null);
+  const [planBusy, setPlanBusy] = useState(false);
   const [sql, setSql] = useState<string>(params.get("sql") ?? "");
   const [result, setResult] = useState<ExecutionResult | null>(null);
   const [running, setRunning] = useState(false);
@@ -41,7 +45,7 @@ function Playground() {
 
   const effectiveMode: Mode = mode === "writable" && user ? "writable" : "readonly";
   const dbs = useApi<DatabaseSummary[]>("/databases");
-  const detail = useApi<DatabaseDetail>(`/databases/${dbKey}?mode=${effectiveMode}`);
+  const detail = useApi<DatabaseDetail>(`/databases/${dbKey}?mode=${effectiveMode}&engine=${engine}`);
 
   // restore draft per database (unless a query came from a lesson link)
   useEffect(() => {
@@ -60,7 +64,7 @@ function Playground() {
     setRunning(true);
     setPanel("results");
     try {
-      const r = await api.post<ExecutionResult>("/playground/execute", { db_key: dbKey, mode: effectiveMode, sql: q });
+      const r = await api.post<ExecutionResult>("/playground/execute", { db_key: dbKey, engine, mode: effectiveMode, sql: q });
       setResult(r);
       toast.awards(r.new_achievements);
       if (effectiveMode === "writable" && r.ok) detail.reload();
@@ -71,13 +75,25 @@ function Playground() {
     } finally {
       setRunning(false);
     }
-  }, [sql, dbKey, effectiveMode, toast, detail]);
+  }, [sql, dbKey, engine, effectiveMode, toast, detail]);
+
+  async function explain(analyze: boolean) {
+    setPlanBusy(true);
+    setPanel("plan");
+    try {
+      setPlan(await api.post<ExplainResponse>("/plans/explain", { sql, db_key: dbKey, engine, mode: effectiveMode, analyze }));
+    } catch (e) {
+      setPlan({ ok: false, error: (e as ApiError).message });
+    } finally {
+      setPlanBusy(false);
+    }
+  }
 
   async function preview(table: string) {
     setRunning(true);
     setPanel("results");
     try {
-      setResult(await api.get<ExecutionResult>(`/databases/${dbKey}/tables/${table}/preview?mode=${effectiveMode}`));
+      setResult(await api.get<ExecutionResult>(`/databases/${dbKey}/tables/${table}/preview?mode=${effectiveMode}&engine=${engine}`));
     } catch (e) {
       toast.push("err", (e as ApiError).message);
     } finally {
@@ -96,7 +112,7 @@ function Playground() {
   async function resetDb() {
     if (!confirm(`รีเซ็ตฐานข้อมูล ${dbKey} (Writable sandbox ของคุณ) กลับเป็นค่าเริ่มต้น? การเปลี่ยนแปลงทั้งหมดจะหายไป`)) return;
     try {
-      const r = await api.post<{ message: string }>("/playground/reset", { db_key: dbKey });
+      const r = await api.post<{ message: string }>("/playground/reset", { db_key: dbKey, engine });
       toast.push("ok", r.message);
       detail.reload();
       setResult(null);
@@ -109,7 +125,7 @@ function Playground() {
     const title = prompt("ตั้งชื่อ query นี้", sql.split("\n").find((l) => l.trim() && !l.startsWith("--"))?.slice(0, 60) ?? "My query");
     if (!title) return;
     try {
-      await api.post("/saved-queries", { title, db_key: dbKey, sql });
+      await api.post("/saved-queries", { title, db_key: dbKey, engine, sql });
       toast.push("ok", "บันทึก query แล้ว");
       setPanel("saved");
     } catch (e) {
@@ -130,9 +146,15 @@ function Playground() {
             className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm" data-testid="db-select">
             {(dbs.data ?? [{ key: dbKey, name: dbKey }]).map((d) => <option key={d.key} value={d.key}>{d.name}</option>)}
           </select>
+          <label className="text-[11px] font-semibold uppercase tracking-wide text-muted" htmlFor="engine-select">Engine</label>
+          <select id="engine-select" value={engine} onChange={(e) => { setEngine(e.target.value as Engine); setResult(null); setPlan(null); }}
+            className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm" data-testid="engine-select">
+            <option value="postgresql">PostgreSQL 16</option>
+            <option value="sqlite">SQLite 3</option>
+          </select>
           <div className="flex items-center justify-between text-xs">
             <Link href={`/databases/${dbKey}`} className="text-brand hover:underline">ER Diagram & คำอธิบาย →</Link>
-            <span className="text-muted">PostgreSQL 16</span>
+            <Link href={`/dialects?db=${dbKey}&sql=${encodeURIComponent(sql)}`} className="text-brand hover:underline">เทียบ dialect →</Link>
           </div>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto scrollbar-thin p-2">
@@ -157,6 +179,8 @@ function Playground() {
           </Button>
           <Button size="sm" onClick={doFormat} title="Format SQL"><Wand2 className="size-3.5" /> Format</Button>
           <Button size="sm" onClick={() => { setSql(""); setResult(null); }} title="ล้าง editor"><Eraser className="size-3.5" /> Clear</Button>
+          <Button size="sm" onClick={() => explain(false)} loading={planBusy} title="แผนการทำงาน (ไม่รัน query)" data-testid="explain-btn"><GitBranch className="size-3.5" /> Explain</Button>
+          {engine === "postgresql" && <Button size="sm" variant="ghost" onClick={() => explain(true)} title="รันจริงและวัดเวลา (DML ถูก rollback เสมอ)" data-testid="analyze-btn">Analyze</Button>}
           {user && <Button size="sm" onClick={saveQuery}><Save className="size-3.5" /> Save</Button>}
           <div className="ml-auto flex items-center gap-1.5">
             <div className="flex overflow-hidden rounded-md border border-line text-xs" role="radiogroup" aria-label="โหมดฐานข้อมูล">
@@ -179,27 +203,36 @@ function Playground() {
 
         {/* Pane 2: Editor */}
         <div className="min-h-[180px] flex-[1.1] border-b border-line">
-          <SqlEditor value={sql} onChange={setSql} onRun={() => run()} schema={detail.data?.tables} errorMarker={errorMarker} />
+          <SqlEditor value={sql} onChange={setSql} onRun={() => run()} schema={detail.data?.tables} errorMarker={errorMarker} validate={engine === "postgresql"} />
         </div>
 
         {/* Pane 3: Results / History / Saved */}
         <div className="flex min-h-0 flex-1 flex-col bg-surface">
           <div className="flex items-center gap-1 border-b border-line px-2 pt-1 text-xs" role="tablist">
-            {([["results", "ผลลัพธ์", Database], ["assistant", "Assistant", Bot], ["history", "History", History], ["saved", "Saved", Bookmark]] as const).map(([k, label, Icon]) => (
+            {([["results", "ผลลัพธ์", Database], ["plan", "Plan", GitBranch], ["assistant", "Assistant", Bot], ["history", "History", History], ["saved", "Saved", Bookmark]] as const).map(([k, label, Icon]) => (
               <button key={k} role="tab" aria-selected={panel === k} onClick={() => setPanel(k)}
                 className={cx("flex items-center gap-1 border-b-2 px-2.5 py-1.5", panel === k ? "border-brand font-medium text-fg" : "border-transparent text-muted hover:text-fg")}>
                 <Icon className="size-3.5" /> {label}
               </button>
             ))}
             <span className={cx("ml-auto rounded px-1.5 py-0.5 text-[10px]", effectiveMode === "writable" ? "bg-warn-soft text-warn" : "bg-surface-2 text-muted")}>
-              {effectiveMode === "writable" ? `Writable sandbox: u_${user?.id}_${dbKey}` : `Read-only: ${dbKey}`}
+              {engine === "sqlite" ? "SQLite · " : ""}{effectiveMode === "writable" ? `Writable sandbox: u_${user?.id}_${dbKey}` : `Read-only: ${dbKey}`}
             </span>
           </div>
           <div className="min-h-0 flex-1 overflow-auto scrollbar-thin p-3">
             {panel === "results" && <ResultView result={result} running={running} />}
+            {panel === "plan" && (planBusy ? <Spinner label="กำลังวิเคราะห์แผน..." />
+              : !plan ? <EmptyState title="ยังไม่มีแผนการทำงาน" description="กด Explain เพื่อดูแผน หรือ Analyze เพื่อรันจริงและวัดเวลา (PostgreSQL)" />
+              : !plan.ok ? <ErrorState message={plan.error ?? "วิเคราะห์ไม่สำเร็จ"} />
+              : <div className="space-y-3">
+                  <PlanTree plan={plan.plan!} />
+                  {plan.findings && plan.findings.length > 0 && (
+                    <ul className="space-y-1 text-sm">{plan.findings.map((f) => <li key={f.code} className="rounded border border-warn/40 bg-warn-soft/30 px-2 py-1"><b>{f.title}</b> — {f.body_md}</li>)}</ul>)}
+                  {engine === "postgresql" && <Link href={`/optimize?db=${dbKey}&sql=${encodeURIComponent(sql)}`} className="text-sm text-brand hover:underline">ทดลองเพิ่ม index ใน Optimization Lab →</Link>}
+                </div>)}
             {panel === "assistant" && <AssistantPanel sql={sql} dbKey={dbKey} lastError={result?.error ?? null} onUseSql={(s) => setSql(s)} />}
-            {panel === "history" && <HistoryPanel onPick={(h) => { setDbKey(h.db_key); setSql(h.sql); setPanel("results"); }} />}
-            {panel === "saved" && <SavedPanel onPick={(q) => { setDbKey(q.db_key); setSql(q.sql); setPanel("results"); }} />}
+            {panel === "history" && <HistoryPanel onPick={(h) => { setDbKey(h.db_key); setEngine((h.engine as Engine) ?? "postgresql"); setSql(h.sql); setPanel("results"); }} />}
+            {panel === "saved" && <SavedPanel onPick={(q) => { setDbKey(q.db_key); setEngine((q.engine as Engine) ?? "postgresql"); setSql(q.sql); setPanel("results"); }} />}
           </div>
         </div>
       </div>

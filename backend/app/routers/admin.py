@@ -37,7 +37,7 @@ def audit(request: Request, admin: User, action: str, target: str) -> None:
 
 def _known_db(db: Session, key: str) -> None:
     if db.get(SampleDatabase, key) is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"ไม่พบฐานข้อมูล {key}")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"ไม่พบฐานข้อมูล {key}")
 
 
 # ------------------------------------------------------------------ statistics
@@ -202,7 +202,7 @@ def get_lesson(lid: int, db: Session = Depends(get_db)):
 def _apply_lesson(db: Session, lsn: Lesson, body: LessonIn) -> None:
     course = db.scalar(select(Course).where(Course.slug == body.course_slug))
     if course is None:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "ไม่พบหลักสูตร")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "ไม่พบหลักสูตร")
     dup = db.scalar(select(Lesson.id).where(Lesson.slug == body.slug, Lesson.id != (lsn.id or 0)))
     if dup:
         raise HTTPException(status.HTTP_409_CONFLICT, "slug นี้ถูกใช้แล้ว")
@@ -211,13 +211,13 @@ def _apply_lesson(db: Session, lsn: Lesson, body: LessonIn) -> None:
     known = set(db.scalars(select(Lesson.slug)))
     bad = [r for r in body.related_slugs if r not in known]
     if bad:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"ไม่พบบทเรียนที่เกี่ยวข้อง: {', '.join(bad)}")
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"ไม่พบบทเรียนที่เกี่ยวข้อง: {', '.join(bad)}")
     examples = []
     for i, ex in enumerate(body.examples, 1):
         try:
             result = run_example(ex.db, ex.sql, ex.writable)
         except ContentError as e:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, f"ตัวอย่างที่ {i}: {e}") from None
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, f"ตัวอย่างที่ {i}: {e}") from None
         examples.append(ex.model_dump() | {"result": result})
     lsn.course_id, lsn.slug, lsn.title, lsn.summary = course.id, body.slug, body.title, body.summary
     lsn.objectives, lsn.content_md, lsn.examples = body.objectives, body.content_md, examples
@@ -349,15 +349,15 @@ def _apply_exercise(db: Session, e: Exercise, body: ExerciseIn) -> None:
     if body.lesson_slug:
         lesson_id = db.scalar(select(Lesson.id).where(Lesson.slug == body.lesson_slug))
         if lesson_id is None:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "ไม่พบบทเรียน")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "ไม่พบบทเรียน")
     if body.project_slug:
         project_id = db.scalar(select(Project.id).where(Project.slug == body.project_slug))
         if project_id is None:
-            raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, "ไม่พบโปรเจกต์")
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "ไม่พบโปรเจกต์")
     try:
         expected = compute_expected(body.sample_db, body.check_type, body.solution_sql, body.check_sql)
     except ContentError as err:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(err)) from None
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(err)) from None
     e.code, e.title, e.description_md, e.difficulty, e.category = body.code, body.title, body.description_md, body.difficulty, body.category
     e.points = body.points or POINTS[body.difficulty]
     e.sample_db, e.check_type, e.solution_sql = body.sample_db, body.check_type, body.solution_sql
@@ -409,7 +409,7 @@ def validate_exercise(body: ExerciseIn):
     try:
         exp = compute_expected(body.sample_db, body.check_type, body.solution_sql, body.check_sql)
     except ContentError as err:
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, str(err)) from None
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(err)) from None
     return {"columns": exp["columns"], "rows": exp["rows"][:20], "row_count": len(exp["rows"])}
 
 
@@ -542,6 +542,8 @@ def rebuild_database(key: str, request: Request, db: Session = Depends(get_db), 
     if db.get(SampleDatabase, key) is None or not re.match(DBKEY, key):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "ไม่พบฐานข้อมูล")
     get_sandbox().provision_one(key, force=True)
+    from app.services.sandbox.sqlite_engine import get_sqlite
+    get_sqlite().export(key)
     readonly_schema.cache_clear()
     failed = []
     for e in db.scalars(select(Exercise).where(Exercise.sample_db == key)):

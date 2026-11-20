@@ -53,8 +53,9 @@ docker compose exec main-db psql -U sqlab -d sqlab -c "UPDATE users SET role='ad
 - ใช้ secret ที่ยาวและสุ่มทุกตัว; อย่า commit `.env`
 - ปรับ `cpus`/`mem_limit` ของ `sandbox-db` ตามจำนวนผู้ใช้
 - ถ้าเปิด AI: backend ต้องออก HTTPS ไปยัง `api.anthropic.com` ได้ (network `web`) — sandbox ยังคงอยู่ใน network ภายในที่ไม่มี internet
-- สำรองข้อมูลเฉพาะ volume `main-data` (sandbox สร้างใหม่ได้ทั้งหมดด้วย seed)
-- ถ้า scale backend หลาย instance: เปลี่ยน rate limiter เป็น Redis (`app/ratelimit.py` มี interface เดียว) — การสร้าง/รีเซ็ต DB ใช้ PostgreSQL advisory lock จึงปลอดภัยข้าม instance อยู่แล้ว
+- สำรองข้อมูล volume `main-data` (sandbox สร้างใหม่ได้ทั้งหมดด้วย seed) และ `sqlite-data` ถ้าต้องการเก็บฐานข้อมูล SQLite ส่วนตัวของผู้เรียน (สำเนา read-only ถูก export ใหม่ทุกครั้งที่ seed)
+- `sqlite-data` (mount ที่ `/app/var` ของ backend) ต้องเขียนได้โดย user `app` (uid 10001) — image สร้างโฟลเดอร์นี้ให้แล้ว ถ้าเปลี่ยนเป็น bind mount ให้ `chown 10001` เอง
+- ถ้า scale backend หลาย instance: เปลี่ยน rate limiter เป็น Redis (`app/ratelimit.py` มี interface เดียว) — การสร้าง/รีเซ็ต DB ใช้ PostgreSQL advisory lock จึงปลอดภัยข้าม instance อยู่แล้ว · ไฟล์ SQLite ต้องอยู่บน shared volume เดียวกัน
 
 ### เครือข่ายใน compose
 | network | สมาชิก | internet |
@@ -106,6 +107,8 @@ cd frontend && npm run typecheck
 cd frontend && npm run build && npm run start &   # หรือ docker compose up
 cd frontend && npx playwright test --trace off   # E2E (E2E_BASE_URL=http://host:port ถ้าไม่ใช่ :3000)
 ```
+E2E สมัครสมาชิกใหม่หลายบัญชีภายในนาทีเดียว จึงต้องรัน backend ด้วย `RATE_AUTH_PER_MIN=200` (ค่าจริงใน production คือ 10) มิฉะนั้นจะได้ `429`
+· E2E ที่ต้องตั้ง role admin ใช้ `E2E_SQL_CMD` (เช่น `"docker compose exec -T main-db psql -U sqlab -d sqlab -c"` สำหรับ Docker stack)
 
 ### แก้ไข sample data
 ```bash

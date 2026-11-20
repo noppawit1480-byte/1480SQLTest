@@ -1117,6 +1117,16 @@
        "default": "readonly",
        "title": "Mode"
       }
+     },
+     {
+      "name": "engine",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "postgresql",
+       "title": "Engine"
+      }
      }
     ],
     "responses": {
@@ -1175,6 +1185,16 @@
        "type": "string",
        "default": "readonly",
        "title": "Mode"
+      }
+     },
+     {
+      "name": "engine",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "string",
+       "default": "postgresql",
+       "title": "Engine"
       }
      }
     ],
@@ -2546,6 +2566,1313 @@
     }
    }
   },
+  "/api/dialects/reference": {
+   "get": {
+    "tags": [
+     "dialects"
+    ],
+    "summary": "Reference",
+    "operationId": "reference_api_dialects_reference_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/dialects/compare": {
+   "post": {
+    "tags": [
+     "dialects"
+    ],
+    "summary": "Compare",
+    "operationId": "compare_api_dialects_compare_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CompareIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/plans/explain": {
+   "post": {
+    "tags": [
+     "plans"
+    ],
+    "summary": "Explain",
+    "operationId": "explain_api_plans_explain_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ExplainIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/plans/index-lab": {
+   "post": {
+    "tags": [
+     "plans"
+    ],
+    "summary": "Index Lab",
+    "description": "Measure a query, add the proposed index(es), measure again — on a throwaway copy, so nothing persists.",
+    "operationId": "index_lab_api_plans_index_lab_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/IndexLabIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/designs/ddl": {
+   "post": {
+    "tags": [
+     "designs"
+    ],
+    "summary": "Ddl",
+    "description": "Stateless: validate + DDL for each dialect + Mermaid preview.",
+    "operationId": "ddl_api_designs_ddl_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DesignBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/designs/from-db/{key}": {
+   "get": {
+    "tags": [
+     "designs"
+    ],
+    "summary": "From Db",
+    "operationId": "from_db_api_designs_from_db__key__get",
+    "parameters": [
+     {
+      "name": "key",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Key"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/designs": {
+   "get": {
+    "tags": [
+     "designs"
+    ],
+    "summary": "List Designs",
+    "operationId": "list_designs_api_designs_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "designs"
+    ],
+    "summary": "Create Design",
+    "operationId": "create_design_api_designs_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DesignIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/designs/{did}": {
+   "get": {
+    "tags": [
+     "designs"
+    ],
+    "summary": "Get Design",
+    "operationId": "get_design_api_designs__did__get",
+    "parameters": [
+     {
+      "name": "did",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Did"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "put": {
+    "tags": [
+     "designs"
+    ],
+    "summary": "Update Design",
+    "operationId": "update_design_api_designs__did__put",
+    "parameters": [
+     {
+      "name": "did",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Did"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/DesignIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "designs"
+    ],
+    "summary": "Delete Design",
+    "operationId": "delete_design_api_designs__did__delete",
+    "parameters": [
+     {
+      "name": "did",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Did"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/designs/{did}/apply": {
+   "post": {
+    "tags": [
+     "designs"
+    ],
+    "summary": "Apply Design",
+    "description": "Reset the learner's writable `blank` DB and create the designed tables in it.",
+    "operationId": "apply_design_api_designs__did__apply_post",
+    "parameters": [
+     {
+      "name": "did",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Did"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ApplyIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/csv/preview": {
+   "post": {
+    "tags": [
+     "csv"
+    ],
+    "summary": "Preview",
+    "operationId": "preview_api_csv_preview_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PreviewIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/csv/import": {
+   "post": {
+    "tags": [
+     "csv"
+    ],
+    "summary": "Do Import",
+    "operationId": "do_import_api_csv_import_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ImportIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/challenges": {
+   "get": {
+    "tags": [
+     "challenges"
+    ],
+    "summary": "History",
+    "operationId": "history_api_challenges_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "challenges"
+    ],
+    "summary": "Start",
+    "operationId": "start_api_challenges_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/StartIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/challenges/{sid}": {
+   "get": {
+    "tags": [
+     "challenges"
+    ],
+    "summary": "Get Session",
+    "operationId": "get_session_api_challenges__sid__get",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Sid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/challenges/{sid}/items/{pos}/submit": {
+   "post": {
+    "tags": [
+     "challenges"
+    ],
+    "summary": "Submit",
+    "operationId": "submit_api_challenges__sid__items__pos__submit_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "pos",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Pos"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AnswerIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/challenges/{sid}/items/{pos}/hint": {
+   "post": {
+    "tags": [
+     "challenges"
+    ],
+    "summary": "Hint",
+    "operationId": "hint_api_challenges__sid__items__pos__hint_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "pos",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Pos"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/challenges/{sid}/items/{pos}/approach": {
+   "post": {
+    "tags": [
+     "challenges"
+    ],
+    "summary": "Save Approach",
+    "description": "Mock interview: save the written explanation (sql field is ignored).",
+    "operationId": "save_approach_api_challenges__sid__items__pos__approach_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Sid"
+      }
+     },
+     {
+      "name": "pos",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Pos"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AnswerIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/challenges/{sid}/finish": {
+   "post": {
+    "tags": [
+     "challenges"
+    ],
+    "summary": "Finish",
+    "operationId": "finish_api_challenges__sid__finish_post",
+    "parameters": [
+     {
+      "name": "sid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Sid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/me/settings": {
+   "patch": {
+    "tags": [
+     "challenges"
+    ],
+    "summary": "Settings",
+    "operationId": "settings_api_me_settings_patch",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SettingsIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/leaderboard": {
+   "get": {
+    "tags": [
+     "challenges"
+    ],
+    "summary": "Leaderboard",
+    "operationId": "leaderboard_api_leaderboard_get",
+    "parameters": [
+     {
+      "name": "board",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "enum": [
+        "points",
+        "challenges"
+       ],
+       "type": "string",
+       "default": "points",
+       "title": "Board"
+      }
+     },
+     {
+      "name": "period",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "enum": [
+        "week",
+        "all"
+       ],
+       "type": "string",
+       "default": "all",
+       "title": "Period"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/discussions": {
+   "get": {
+    "tags": [
+     "community"
+    ],
+    "summary": "List Posts",
+    "operationId": "list_posts_api_discussions_get",
+    "parameters": [
+     {
+      "name": "target_type",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "enum": [
+        "exercise",
+        "lesson"
+       ],
+       "type": "string",
+       "title": "Target Type"
+      }
+     },
+     {
+      "name": "target_key",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Target Key"
+      }
+     },
+     {
+      "name": "reveal_spoilers",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "type": "boolean",
+       "default": false,
+       "title": "Reveal Spoilers"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "tags": [
+     "community"
+    ],
+    "summary": "Create Post",
+    "operationId": "create_post_api_discussions_post",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PostIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/discussions/{pid}": {
+   "patch": {
+    "tags": [
+     "community"
+    ],
+    "summary": "Edit Post",
+    "operationId": "edit_post_api_discussions__pid__patch",
+    "parameters": [
+     {
+      "name": "pid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Pid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/PostEdit"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "delete": {
+    "tags": [
+     "community"
+    ],
+    "summary": "Delete Post",
+    "operationId": "delete_post_api_discussions__pid__delete",
+    "parameters": [
+     {
+      "name": "pid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Pid"
+      }
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Successful Response"
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/discussions/{pid}/vote": {
+   "post": {
+    "tags": [
+     "community"
+    ],
+    "summary": "Vote",
+    "operationId": "vote_api_discussions__pid__vote_post",
+    "parameters": [
+     {
+      "name": "pid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Pid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/discussions/{pid}/report": {
+   "post": {
+    "tags": [
+     "community"
+    ],
+    "summary": "Report",
+    "operationId": "report_api_discussions__pid__report_post",
+    "parameters": [
+     {
+      "name": "pid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Pid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/ReportIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/reports": {
+   "get": {
+    "tags": [
+     "community"
+    ],
+    "summary": "List Reports",
+    "operationId": "list_reports_api_admin_reports_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/posts/{pid}/hide": {
+   "post": {
+    "tags": [
+     "community"
+    ],
+    "summary": "Hide Post",
+    "operationId": "hide_post_api_admin_posts__pid__hide_post",
+    "parameters": [
+     {
+      "name": "pid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Pid"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/HideIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/admin/reports/{rid}/resolve": {
+   "post": {
+    "tags": [
+     "community"
+    ],
+    "summary": "Resolve Report",
+    "operationId": "resolve_report_api_admin_reports__rid__resolve_post",
+    "parameters": [
+     {
+      "name": "rid",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "integer",
+       "title": "Rid"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/health": {
    "get": {
     "summary": "Health",
@@ -2655,6 +3982,48 @@
     ],
     "title": "AnalyzeIn"
    },
+   "AnswerIn": {
+    "properties": {
+     "sql": {
+      "type": "string",
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Sql"
+     },
+     "approach": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 4000
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Approach"
+     }
+    },
+    "type": "object",
+    "required": [
+     "sql"
+    ],
+    "title": "AnswerIn"
+   },
+   "ApplyIn": {
+    "properties": {
+     "engine": {
+      "type": "string",
+      "enum": [
+       "postgresql",
+       "sqlite"
+      ],
+      "title": "Engine",
+      "default": "postgresql"
+     }
+    },
+    "type": "object",
+    "title": "ApplyIn"
+   },
    "ChatMsg": {
     "properties": {
      "role": {
@@ -2678,6 +4047,55 @@
      "content"
     ],
     "title": "ChatMsg"
+   },
+   "ColumnIn": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "pattern": "^[a-z_][a-z0-9_]{0,62}$",
+      "title": "Name"
+     },
+     "type": {
+      "type": "string",
+      "enum": [
+       "integer",
+       "bigint",
+       "numeric",
+       "boolean",
+       "date",
+       "timestamp",
+       "text"
+      ],
+      "title": "Type"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "type"
+    ],
+    "title": "ColumnIn"
+   },
+   "CompareIn": {
+    "properties": {
+     "sql": {
+      "type": "string",
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Sql"
+     },
+     "db_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,30}$",
+      "title": "Db Key",
+      "default": "ecommerce"
+     }
+    },
+    "type": "object",
+    "required": [
+     "sql"
+    ],
+    "title": "CompareIn"
    },
    "CoursePatch": {
     "properties": {
@@ -2722,6 +4140,49 @@
      "description"
     ],
     "title": "DatabasePatch"
+   },
+   "DesignBody": {
+    "properties": {
+     "tables": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "maxItems": 30,
+      "title": "Tables"
+     },
+     "relations": {
+      "items": {
+       "additionalProperties": true,
+       "type": "object"
+      },
+      "type": "array",
+      "maxItems": 200,
+      "title": "Relations"
+     }
+    },
+    "type": "object",
+    "title": "DesignBody"
+   },
+   "DesignIn": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Name"
+     },
+     "design": {
+      "$ref": "#/components/schemas/DesignBody"
+     }
+    },
+    "type": "object",
+    "required": [
+     "name",
+     "design"
+    ],
+    "title": "DesignIn"
    },
    "ExampleIn": {
     "properties": {
@@ -2770,6 +4231,15 @@
       "type": "string",
       "pattern": "^[a-z][a-z0-9_]{1,30}$",
       "title": "Db Key"
+     },
+     "engine": {
+      "type": "string",
+      "enum": [
+       "postgresql",
+       "sqlite"
+      ],
+      "title": "Engine",
+      "default": "postgresql"
      },
      "mode": {
       "type": "string",
@@ -2935,6 +4405,50 @@
     ],
     "title": "ExerciseIn"
    },
+   "ExplainIn": {
+    "properties": {
+     "sql": {
+      "type": "string",
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Sql"
+     },
+     "db_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,30}$",
+      "title": "Db Key",
+      "default": "ecommerce"
+     },
+     "engine": {
+      "type": "string",
+      "enum": [
+       "postgresql",
+       "sqlite"
+      ],
+      "title": "Engine",
+      "default": "postgresql"
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "readonly",
+       "writable"
+      ],
+      "title": "Mode",
+      "default": "readonly"
+     },
+     "analyze": {
+      "type": "boolean",
+      "title": "Analyze",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "sql"
+    ],
+    "title": "ExplainIn"
+   },
    "GenerateIn": {
     "properties": {
      "db_key": {
@@ -2993,6 +4507,112 @@
      "seconds"
     ],
     "title": "HeartbeatIn"
+   },
+   "HideIn": {
+    "properties": {
+     "hidden": {
+      "type": "boolean",
+      "title": "Hidden"
+     }
+    },
+    "type": "object",
+    "required": [
+     "hidden"
+    ],
+    "title": "HideIn"
+   },
+   "ImportIn": {
+    "properties": {
+     "csv_text": {
+      "type": "string",
+      "maxLength": 5242880,
+      "minLength": 1,
+      "title": "Csv Text"
+     },
+     "delimiter": {
+      "type": "string",
+      "title": "Delimiter",
+      "default": ","
+     },
+     "has_header": {
+      "type": "boolean",
+      "title": "Has Header",
+      "default": true
+     },
+     "db_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,30}$",
+      "title": "Db Key",
+      "default": "blank"
+     },
+     "engine": {
+      "type": "string",
+      "enum": [
+       "postgresql",
+       "sqlite"
+      ],
+      "title": "Engine",
+      "default": "postgresql"
+     },
+     "table_name": {
+      "type": "string",
+      "pattern": "^[a-z_][a-z0-9_]{0,62}$",
+      "title": "Table Name"
+     },
+     "columns": {
+      "anyOf": [
+       {
+        "items": {
+         "$ref": "#/components/schemas/ColumnIn"
+        },
+        "type": "array"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Columns"
+     },
+     "replace": {
+      "type": "boolean",
+      "title": "Replace",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "csv_text",
+     "table_name"
+    ],
+    "title": "ImportIn"
+   },
+   "IndexLabIn": {
+    "properties": {
+     "sql": {
+      "type": "string",
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Sql"
+     },
+     "index_sql": {
+      "type": "string",
+      "maxLength": 5000,
+      "minLength": 1,
+      "title": "Index Sql"
+     },
+     "db_key": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]{1,30}$",
+      "title": "Db Key",
+      "default": "ecommerce"
+     }
+    },
+    "type": "object",
+    "required": [
+     "sql",
+     "index_sql"
+    ],
+    "title": "IndexLabIn"
    },
    "LessonIn": {
     "properties": {
@@ -3173,6 +4793,104 @@
     ],
     "title": "NoteIn"
    },
+   "PostEdit": {
+    "properties": {
+     "body": {
+      "type": "string",
+      "maxLength": 5000,
+      "minLength": 2,
+      "title": "Body"
+     },
+     "is_spoiler": {
+      "anyOf": [
+       {
+        "type": "boolean"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Is Spoiler"
+     }
+    },
+    "type": "object",
+    "required": [
+     "body"
+    ],
+    "title": "PostEdit"
+   },
+   "PostIn": {
+    "properties": {
+     "target_type": {
+      "type": "string",
+      "enum": [
+       "exercise",
+       "lesson"
+      ],
+      "title": "Target Type"
+     },
+     "target_key": {
+      "type": "string",
+      "maxLength": 80,
+      "minLength": 1,
+      "title": "Target Key"
+     },
+     "body": {
+      "type": "string",
+      "maxLength": 5000,
+      "minLength": 2,
+      "title": "Body"
+     },
+     "is_spoiler": {
+      "type": "boolean",
+      "title": "Is Spoiler",
+      "default": false
+     },
+     "parent_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "target_type",
+     "target_key",
+     "body"
+    ],
+    "title": "PostIn"
+   },
+   "PreviewIn": {
+    "properties": {
+     "csv_text": {
+      "type": "string",
+      "maxLength": 5242880,
+      "minLength": 1,
+      "title": "Csv Text"
+     },
+     "delimiter": {
+      "type": "string",
+      "title": "Delimiter",
+      "default": ","
+     },
+     "has_header": {
+      "type": "boolean",
+      "title": "Has Header",
+      "default": true
+     }
+    },
+    "type": "object",
+    "required": [
+     "csv_text"
+    ],
+    "title": "PreviewIn"
+   },
    "ProjectIn": {
     "properties": {
      "slug": {
@@ -3268,12 +4986,36 @@
     ],
     "title": "RegisterIn"
    },
+   "ReportIn": {
+    "properties": {
+     "reason": {
+      "type": "string",
+      "maxLength": 300,
+      "minLength": 3,
+      "title": "Reason"
+     }
+    },
+    "type": "object",
+    "required": [
+     "reason"
+    ],
+    "title": "ReportIn"
+   },
    "ResetIn": {
     "properties": {
      "db_key": {
       "type": "string",
       "pattern": "^[a-z][a-z0-9_]{1,30}$",
       "title": "Db Key"
+     },
+     "engine": {
+      "type": "string",
+      "enum": [
+       "postgresql",
+       "sqlite"
+      ],
+      "title": "Engine",
+      "default": "postgresql"
      }
     },
     "type": "object",
@@ -3295,6 +5037,15 @@
       "pattern": "^[a-z][a-z0-9_]{1,30}$",
       "title": "Db Key"
      },
+     "engine": {
+      "type": "string",
+      "enum": [
+       "postgresql",
+       "sqlite"
+      ],
+      "title": "Engine",
+      "default": "postgresql"
+     },
      "sql": {
       "type": "string",
       "maxLength": 20000,
@@ -3309,6 +5060,92 @@
      "sql"
     ],
     "title": "SavedQueryIn"
+   },
+   "SettingsIn": {
+    "properties": {
+     "show_on_leaderboard": {
+      "type": "boolean",
+      "title": "Show On Leaderboard"
+     }
+    },
+    "type": "object",
+    "required": [
+     "show_on_leaderboard"
+    ],
+    "title": "SettingsIn"
+   },
+   "StartIn": {
+    "properties": {
+     "kind": {
+      "type": "string",
+      "enum": [
+       "timed",
+       "random",
+       "interview"
+      ],
+      "title": "Kind"
+     },
+     "count": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 10.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Count"
+     },
+     "minutes": {
+      "anyOf": [
+       {
+        "type": "integer",
+        "maximum": 90.0,
+        "minimum": 1.0
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Minutes"
+     },
+     "difficulty": {
+      "anyOf": [
+       {
+        "type": "string",
+        "enum": [
+         "easy",
+         "medium",
+         "hard",
+         "expert"
+        ]
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Difficulty"
+     },
+     "category": {
+      "anyOf": [
+       {
+        "type": "string",
+        "maxLength": 40
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Category"
+     }
+    },
+    "type": "object",
+    "required": [
+     "kind"
+    ],
+    "title": "StartIn"
    },
    "TutorIn": {
     "properties": {

@@ -1,6 +1,7 @@
 # Sample Databases — ER Diagrams & Data Dictionary
 
 > GENERATED จาก catalog จริงของ sandbox (`GET /api/databases/{key}`) — หน้าเว็บ /databases แสดงข้อมูลเดียวกันแบบ interactive
+> ทุกฐานข้อมูลมีสำเนา SQLite ที่ export จากข้อมูลชุดเดียวกัน (Phase 3) — ใช้ได้ทั้ง engine PostgreSQL และ SQLite
 
 ## E-Commerce (`ecommerce`)
 
@@ -90,7 +91,7 @@ erDiagram
 | `country` | character varying(60) | NO |  |  |
 | `created_at` | date | NO |  |  |
 
-### `order_items` — 1,666 แถว
+### `order_items` — 1666 แถว
 
 รายการสินค้าในแต่ละคำสั่งซื้อ
 
@@ -328,7 +329,7 @@ erDiagram
 | `applied_at` | date | NO |  |  |
 | `approved_at` | date | YES |  |  |
 
-### `transactions` — 2,066 แถว
+### `transactions` — 2066 แถว
 
 ธุรกรรม — amount เป็นบวก = เงินเข้า, ติดลบ = เงินออก
 
@@ -512,7 +513,7 @@ erDiagram
 | `name` | character varying(120) | NO |  |  |
 | `country` | character varying(60) | YES |  |  |
 
-### `invoice_items` — 1,297 แถว
+### `invoice_items` — 1297 แถว
 
 รายการเพลงในใบแจ้งหนี้
 
@@ -568,6 +569,12 @@ erDiagram
 | `composer` | character varying(200) | YES |  |  |
 | `milliseconds` | integer | NO |  | ความยาวเพลง (มิลลิวินาที) |
 | `unit_price` | numeric(6,2) | NO |  |  |
+
+## Blank (ฐานข้อมูลว่าง) (`blank`)
+
+ฐานข้อมูลว่างสำหรับออกแบบตารางเอง (ER Diagram Builder), นำเข้า CSV และฝึก CREATE TABLE ตั้งแต่ศูนย์ — ใช้ในโหมด Writable sandbox
+
+_ฐานข้อมูลว่าง — ใช้เป็นพื้นที่สร้างตารางเองใน Writable sandbox (DB Designer / CSV import)_
 
 ## SaaS Analytics (Advanced) (`saas`)
 
@@ -645,7 +652,7 @@ erDiagram
 | `employees` | integer | YES |  |  |
 | `created_at` | date | NO |  |  |
 
-### `events` — 43,210 แถว
+### `events` — 43210 แถว
 
 event stream การใช้งานผลิตภัณฑ์ — properties เป็น JSONB (คีย์ไม่เหมือนกันทุก event)
 
@@ -657,7 +664,7 @@ event stream การใช้งานผลิตภัณฑ์ — properti
 | `occurred_at` | timestamp without time zone | NO |  |  |
 | `properties` | jsonb | NO |  | เช่น {"device": "web", "duration_ms": 1200, "report_type": "sales"} |
 
-### `invoices` — 1,436 แถว
+### `invoices` — 1436 แถว
 
 ใบแจ้งหนี้รายเดือน — status overdue/open = ยังไม่ได้รับเงิน
 
