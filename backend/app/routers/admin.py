@@ -542,8 +542,11 @@ def rebuild_database(key: str, request: Request, db: Session = Depends(get_db), 
     if db.get(SampleDatabase, key) is None or not re.match(DBKEY, key):
         raise HTTPException(status.HTTP_404_NOT_FOUND, "ไม่พบฐานข้อมูล")
     get_sandbox().provision_one(key, force=True)
+    from app.services.sandbox.mysql_engine import get_mysql, mysql_enabled
     from app.services.sandbox.sqlite_engine import get_sqlite
     get_sqlite().export(key)
+    if mysql_enabled():
+        get_mysql().export(key)
     readonly_schema.cache_clear()
     failed = []
     for e in db.scalars(select(Exercise).where(Exercise.sample_db == key)):

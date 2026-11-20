@@ -1,7 +1,7 @@
 # SQLab — SQL Learning & Practice Platform
 
 แพลตฟอร์มเรียนรู้และฝึก SQL ตั้งแต่ศูนย์ถึงระดับมืออาชีพ: **LEARN → EXPERIMENT → PRACTICE → ANALYZE → APPLY**
-ทุก query รันบน **PostgreSQL 16 จริง** (หรือ **SQLite** — Phase 3) ใน sandbox ที่แยกจากระบบหลัก และระบบตรวจคำตอบจาก **ผลลัพธ์** ไม่ใช่ข้อความ SQL
+ทุก query รันบน **PostgreSQL 16 จริง** (หรือ **SQLite** / **MySQL 8.4** — Phase 3) ใน sandbox ที่แยกจากระบบหลัก และระบบตรวจคำตอบจาก **ผลลัพธ์** ไม่ใช่ข้อความ SQL
 
 | | |
 |---|---|
@@ -11,7 +11,7 @@
 | 🗄️ Sample DBs | ecommerce · hr · banking · hospital · music_store · **saas (advanced, JSONB ~43k events)** · blank — PK/FK, comments, ER diagram, ข้อมูลกรณีพิเศษ |
 | 💼 Real-World Projects | 6 สถานการณ์ธุรกิจ (Sales, Customer, Product, Employee, Financial, SaaS Metrics) · 25 งานตรวจอัตโนมัติ |
 | 🤖 SQL Learning Assistant | Explain · Explain Error · Fix · Review · Optimize (rule engine บน parser ของ PostgreSQL + EXPLAIN — ไม่ต้องมี AI) · AI Tutor และ Generate Practice ผ่าน provider ที่เปลี่ยนได้ (Claude) |
-| 🧰 Professional tools (Phase 3) | **PostgreSQL + SQLite** (ข้อมูลชุดเดียวกัน) · Execution plan tree (Explain / Analyze) · Index optimization lab บนสำเนาชั่วคราว · SQL Dialect comparison · **ER Diagram Builder** → DDL 3 dialect → สร้างจริงใน sandbox ส่วนตัว · **CSV import** |
+| 🧰 Professional tools (Phase 3) | **PostgreSQL + SQLite + MySQL** (ข้อมูลชุดเดียวกัน) · Execution plan tree (Explain / Analyze) · Index optimization lab บนสำเนาชั่วคราว · SQL Dialect comparison · **ER Diagram Builder** → DDL 3 dialect → สร้างจริงใน sandbox ส่วนตัว · **CSV import** |
 | ⏱️ Challenges (Phase 3) | Timed / Random challenge (เวลาบังคับที่ server) · **Mock Interview** + rubric · Leaderboard (opt-out ได้) |
 | 💬 Community (Phase 3) | กระทู้ในทุกโจทย์/บทเรียน · spoiler gating ที่ server · โหวต · รายงาน → moderation |
 | 🛡️ Admin Panel | RBAC · สถิติ · ผู้ใช้ · CRUD บทเรียน/โจทย์/โปรเจกต์ที่ตรวจด้วยการรันจริง · achievements · rebuild ฐานข้อมูล |
@@ -27,7 +27,7 @@ docker compose up -d --build
 รายละเอียด (รวมการรันแบบไม่ใช้ Docker): [docs/INSTALL.md](docs/INSTALL.md)
 
 ## Tech stack
-Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · Monaco Editor · Recharts · Mermaid — FastAPI · SQLAlchemy 2 · Alembic · psycopg 3 · pglast (libpg_query) · argon2 · anthropic SDK (optional) — PostgreSQL 16 ×2 (main + sandbox) · SQLite 3 (engine ที่สอง) — Docker Compose · pytest · Playwright
+Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · Monaco Editor · Recharts · Mermaid — FastAPI · SQLAlchemy 2 · Alembic · psycopg 3 · pglast (libpg_query) · argon2 · anthropic SDK (optional) — PostgreSQL 16 ×2 (main + sandbox) · SQLite 3 · MySQL 8.4 + PyMySQL (engine ที่สอง/สาม) — Docker Compose · pytest · Playwright
 
 Authentication ใช้ session ฝั่ง server ของ FastAPI (token สุ่ม 256-bit ใน httpOnly cookie, เก็บ SHA-256 ใน DB) แทน Auth.js
 เพราะ backend เป็น Python และ cookie ผ่าน Next.js same-origin proxy — ดูเหตุผลใน [docs/02-architecture.md](docs/02-architecture.md)
@@ -47,7 +47,7 @@ Authentication ใช้ session ฝั่ง server ของ FastAPI (token �
 ## Project structure
 ```
 .
-├── docker-compose.yml            # main-db, sandbox-db (internal network, CPU/RAM limits), backend, frontend
+├── docker-compose.yml            # main-db, sandbox-db + sandbox-mysql (internal network, CPU/RAM limits), backend, frontend
 ├── .env.example
 ├── docs/                         # SRS, architecture, DB design, flows, roadmap, API, install, user guide, test report
 ├── backend/                      # FastAPI
@@ -58,7 +58,7 @@ Authentication ใช้ session ฝั่ง server ของ FastAPI (token �
 │   │   ├── routers/              # auth · me · learn · practice · projects · playground · assistant · admin
 │   │   │                         # + dialects · optimize · designs · imports · challenges · discussions (Phase 3)
 │   │   ├── services/
-│   │   │   ├── sandbox/          # EngineAdapter types + PostgreSQL executor & provisioning + SQLite engine/worker
+│   │   │   ├── sandbox/          # EngineAdapter types + PostgreSQL executor & provisioning + SQLite engine/worker + MySQL engine
 │   │   │   ├── checker.py        # result-based answer checking (pure)
 │   │   │   ├── validator.py      # syntax validation (libpg_query)
 │   │   │   ├── sql_split.py      # statement splitting with offsets
@@ -80,5 +80,5 @@ Authentication ใช้ session ฝั่ง server ของ FastAPI (token �
 
 ## สถานะ
 - **Phase 1 (MVP)**, **Phase 2 (Advanced Learning)** และ **Phase 3 (Professional Platform)** เสร็จและทดสอบแล้ว — ผลทดสอบล่าสุดใน [docs/TEST_REPORT.md](docs/TEST_REPORT.md)
-- **ยังไม่ได้ทำ: MySQL engine** — "Multiple engines" ในรอบนี้คือ PostgreSQL + SQLite; MySQL มีเฉพาะ DDL จาก Designer และตารางเทียบ dialect (ดู [docs/05-roadmap.md](docs/05-roadmap.md) ข้อจำกัดที่ทราบของ Phase 3)
+- **MySQL engine** เสร็จแล้ว (server แยก `sandbox-mysql` ใน compose; เปิดใช้เมื่อตั้งค่า `MYSQL_HOST`) — SQL Server เป็นข้อมูลอ้างอิงในหน้าเทียบ dialect เท่านั้น
 - AI layer ของ Assistant ทดสอบด้วย fake provider; ยังไม่ได้ทดสอบกับ Claude API จริง (ต้องใส่ `ANTHROPIC_API_KEY`)

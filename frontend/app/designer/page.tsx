@@ -6,6 +6,7 @@ import { AlertTriangle, Copy, Download, FileUp, FolderOpen, Plus, Rocket, Save, 
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import type { DatabaseSummary, Design, DesignColumn, Engine } from "@/lib/types";
+import { EngineSelect } from "@/components/EngineSelect";
 import { Mermaid } from "@/components/Mermaid";
 import { useAuth, useToast } from "@/components/providers";
 import { SqlBlock } from "@/components/Markdown";
@@ -145,7 +146,7 @@ function DesignerTab() {
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <Button size="sm" variant="ghost" onClick={() => { navigator.clipboard.writeText(check.ddl![dialect]); toast.push("ok", "คัดลอกแล้ว"); }}><Copy className="size-3.5" /> คัดลอก</Button>
                   {user && (<>
-                    <select value={engine} onChange={(e) => setEngine(e.target.value as Engine)} className={inp} aria-label="engine"><option value="postgresql">PostgreSQL</option><option value="sqlite">SQLite</option></select>
+                    <EngineSelect value={engine} onChange={setEngine} className={inp} aria-label="engine" data-testid="apply-engine" />
                     <Button size="sm" variant="primary" onClick={apply} data-testid="apply-design"><Rocket className="size-3.5" /> สร้างใน Writable sandbox</Button>
                   </>)}
                 </div>
@@ -222,7 +223,7 @@ function CsvTab() {
         <Card title="3. นำเข้า">
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <label>ชื่อตาราง <input value={table} onChange={(e) => setTable(e.target.value)} className={cx(inp, "font-mono")} data-testid="csv-table" /></label>
-            <label>engine <select value={engine} onChange={(e) => setEngine(e.target.value as Engine)} className={inp}><option value="postgresql">PostgreSQL</option><option value="sqlite">SQLite</option></select></label>
+            <label>engine <EngineSelect value={engine} onChange={setEngine} className={inp} data-testid="csv-engine" /></label>
             <label className="flex items-center gap-1"><input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} /> แทนที่ตารางเดิม</label>
             <Badge>ปลายทาง: ฐานข้อมูล blank (Writable sandbox)</Badge>
             <Button variant="primary" size="sm" onClick={doImport} data-testid="csv-import"><Download className="size-3.5" /> นำเข้า</Button>

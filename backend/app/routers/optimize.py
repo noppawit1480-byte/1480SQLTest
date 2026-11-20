@@ -26,7 +26,7 @@ DBKEY = r"^[a-z][a-z0-9_]{1,30}$"
 class ExplainIn(BaseModel):
     sql: str = Field(min_length=1, max_length=20000)
     db_key: str = Field(default="ecommerce", pattern=DBKEY)
-    engine: Literal["postgresql", "sqlite"] = "postgresql"
+    engine: Literal["postgresql", "sqlite", "mysql"] = "postgresql"
     mode: Literal["readonly", "writable"] = "readonly"
     analyze: bool = False
 
@@ -61,6 +61,12 @@ def explain(body: ExplainIn, request: Request, db: Session = Depends(get_db), us
         if body.engine == "sqlite":
             stmt = body.sql.strip().rstrip(";")
             res = eng.execute(target, f"EXPLAIN QUERY PLAN {stmt}")
+        elif body.engine == "mysql":
+            stmt = plans.single_statement_mysql(body.sql)
+            # EXPLAIN ANALYZE really executes the statement: on a writable target wrap it in a rolled-back transaction
+            script = (f"START TRANSACTION; EXPLAIN ANALYZE {stmt}; ROLLBACK" if body.analyze and target.mode == "writable"
+                      else f"EXPLAIN ANALYZE {stmt}" if body.analyze else f"EXPLAIN FORMAT=TREE {stmt}")
+            res = eng.execute(target, script)
         else:
             allowed = (ast.SelectStmt, ast.InsertStmt, ast.UpdateStmt, ast.DeleteStmt)
             stmt = plans.single_statement(body.sql, allowed)
@@ -74,7 +80,8 @@ def explain(body: ExplainIn, request: Request, db: Session = Depends(get_db), us
     rs = next((r for r in res.result_sets if r.columns), None)
     if not res.ok or rs is None:
         return {"ok": False, "error": res.error.message if res.error else "EXPLAIN failed", "sqlstate": res.error.sqlstate if res.error else None}
-    plan = plans.normalize_sqlite(rs.rows) if body.engine == "sqlite" else plans.normalize_pg(rs.rows[0][0])
+    plan = (plans.normalize_sqlite(rs.rows) if body.engine == "sqlite" else plans.normalize_mysql(rs.rows[0][0])
+            if body.engine == "mysql" else plans.normalize_pg(rs.rows[0][0]))
     return {"ok": True, "plan": plan, "summary": plans.summarize(plan),
             "findings": plans.plan_findings(body.sql, plan, _rows(body.db_key, body.engine))}
 

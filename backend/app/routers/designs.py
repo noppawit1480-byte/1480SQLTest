@@ -29,7 +29,7 @@ class DesignIn(BaseModel):
 
 
 class ApplyIn(BaseModel):
-    engine: Literal["postgresql", "sqlite"] = "postgresql"
+    engine: Literal["postgresql", "sqlite", "mysql"] = "postgresql"
 
 
 def _check(design: DesignBody) -> dict:

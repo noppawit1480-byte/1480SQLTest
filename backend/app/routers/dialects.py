@@ -21,7 +21,9 @@ class CompareIn(BaseModel):
 
 @router.get("/reference")
 def reference():
-    return {"engines": ["postgresql", "sqlite", "mysql", "sqlserver"], "executable": ["postgresql", "sqlite"],
+    from app.services.sandbox.mysql_engine import mysql_enabled
+    return {"engines": ["postgresql", "sqlite", "mysql", "sqlserver"],
+            "executable": ["postgresql", "sqlite"] + (["mysql"] if mysql_enabled() else []),
             "features": [asdict(f) for f in dialects.FEATURES.values()]}
 
 
@@ -30,9 +32,13 @@ def compare(body: CompareIn, request: Request, db: Session = Depends(get_db)):
     check_rate(request, "execute", get_settings().rate_execute_per_min)
     if db.get(SampleDatabase, body.db_key) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "ไม่พบฐานข้อมูลนี้")
-    pg, sq = get_engine("postgresql"), get_engine("sqlite")
-    pg_res = pg.execute(pg.readonly_target(body.db_key), body.sql)
-    sq_res = sq.execute(sq.readonly_target(body.db_key), body.sql)
+    from app.services.sandbox.mysql_engine import mysql_enabled
+    names = ["postgresql", "sqlite"] + (["mysql"] if mysql_enabled() else [])
+    results = {}
+    for n in names:
+        eng = get_engine(n)
+        results[n] = eng.execute(eng.readonly_target(body.db_key), body.sql)
     keys = dialects.detect_features(body.sql)
-    return {"postgresql": asdict(pg_res), "sqlite": asdict(sq_res), "comparison": dialects.compare(body.sql, pg_res, sq_res),
+    return {**{n: asdict(r) for n, r in results.items()}, "engines": names,
+            "comparison": dialects.compare(body.sql, results),
             "features": [asdict(dialects.FEATURES[k]) for k in keys]}

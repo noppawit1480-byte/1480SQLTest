@@ -51,7 +51,7 @@ export function PlanTree({ plan }: { plan: Plan }) {
         {plan.total_cost != null && <span>total cost: <b>{plan.total_cost.toLocaleString()}</b></span>}
         {plan.planning_ms != null && <span>planning: <b>{plan.planning_ms.toFixed(2)} ms</b></span>}
         {plan.execution_ms != null && <span>execution: <b>{plan.execution_ms.toFixed(2)} ms</b></span>}
-        <span>{plan.analyzed ? "แถบ = สัดส่วนเวลาจริง" : plan.engine === "postgresql" ? "แถบ = สัดส่วน cost โดยประมาณ" : "SQLite EXPLAIN QUERY PLAN (ไม่มี cost)"}</span>
+        <span>{plan.analyzed ? "แถบ = สัดส่วนเวลาจริง" : plan.engine !== "sqlite" ? "แถบ = สัดส่วน cost โดยประมาณ" : "SQLite EXPLAIN QUERY PLAN (ไม่มี cost)"}</span>
       </div>
       <ul className="space-y-1">
         {plan.engine === "sqlite" && plan.root.label === "QUERY PLAN"

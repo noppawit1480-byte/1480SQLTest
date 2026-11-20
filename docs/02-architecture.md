@@ -14,7 +14,8 @@ flowchart LR
   end
   subgraph api["backend container (FastAPI)"]
     R[REST Routers] --> S[Services<br/>auth · progress · checker · content]
-    S --> SB[Sandbox Executor<br/>EngineAdapter: PostgresAdapter]
+    S --> SB[Sandbox Executor<br/>EngineAdapter: PostgreSQL · SQLite · MySQL]
+    SB --> SQ[(var/sqlite<br/>SQLite files + worker process)]
   end
   subgraph core["main-db (PostgreSQL 16)"]
     M[(sqlplatform<br/>users · lessons · exercises<br/>submissions · progress …)]
@@ -24,11 +25,17 @@ flowchart LR
     RO[(ro_ecommerce …<br/>shared read-only)]
     U[(u_42_ecommerce …<br/>per-user writable)]
   end
+  subgraph mysql["sandbox-mysql (MySQL 8.4, internal network, CPU/RAM limited)"]
+    MRO[(ro_ecommerce …<br/>shared read-only)]
+    MU[(u_42_ecommerce …<br/>per-user writable)]
+  end
   UI -- HTTPS, cookie session --> RW --> R
   S -- SQLAlchemy (app role) --> M
   SB -- psycopg (sbx_reader / sbx_u_N roles only) --> RO
   SB --> U
   SB -. admin role: create/reset only .-> T
+  SB -- PyMySQL (sbx_reader / sbx_u_N accounts only) --> MRO
+  SB --> MU
 ```
 
 หลักการสำคัญ
@@ -52,7 +59,7 @@ backend/app
 │   Phase 3: dialects · optimize (plans) · designs · imports (csv) · challenges (+ leaderboard) · discussions
 ├── services/            # business logic (ไม่รู้จัก HTTP)
 │   ├── sandbox/         # base.py (EngineAdapter protocol, result types) + postgres.py (executor + provisioning)
-│   │                    # + sqlite_engine.py / sqlite_worker.py (Phase 3)
+│   │                    # + sqlite_engine.py / sqlite_worker.py / mysql_engine.py (Phase 3)
 │   ├── checker.py       # result-based answer checking (pure functions → unit-testable)
 │   ├── validator.py     # libpg_query syntax validation
 │   ├── sql_split.py     # statement splitting with source offsets
@@ -87,17 +94,17 @@ backend/app
 | Answer checking (DML) | clone template เป็น DB ชั่วคราว `chk_<uid>_<rand>` → รันคำตอบ → รัน `check_sql` → DROP; expected คำนวณจากเฉลยด้วยวิธีเดียวกันตอน seed → ไม่กระทบ sandbox ของผู้ใช้ และ COMMIT/ROLLBACK ในคำตอบทำงานเหมือน server จริง |
 | Credentials | password ของ `sbx_u_<uid>` = `HMAC-SHA256(SANDBOX_ROLE_SECRET, uid)` คำนวณสด ไม่ต้องเก็บ ไม่ส่งถึง frontend |
 
-### 3.3 EngineAdapter และ engine ที่สอง: SQLite (Phase 3)
+### 3.3 EngineAdapter และ engine เพิ่มเติม: SQLite, MySQL (Phase 3)
 ```python
 class EngineAdapter(Protocol):
-    engine: str                                   # "postgresql" | "sqlite"
+    engine: str                                   # "postgresql" | "sqlite" | "mysql"
     def execute(self, target: Target, sql: str) -> ExecutionResult
     def introspect(self, target: Target) -> list[TableInfo]
     def readonly_target(self, db_key) -> Target
     def ensure_user_db(self, user_id, db_key) -> Target
     def reset_user_db(self, user_id, db_key) -> None
 ```
-`get_engine(name)` คืน `PostgresSandbox` หรือ `SqliteSandbox` — Playground, Explain, Designer (apply), CSV import และ Dialect comparison เลือก engine ผ่าน interface นี้
+`get_engine(name)` คืน `PostgresSandbox`, `SqliteSandbox` หรือ `MySqlSandbox` — Playground, Explain, Designer (apply), CSV import และ Dialect comparison เลือก engine ผ่าน interface นี้
 การตรวจคำตอบแบบฝึกหัด/challenge ยังใช้ PostgreSQL (`execute_on_fresh_copy`, expected คำนวณบน PostgreSQL)
 
 **SQLite sandbox** (`services/sandbox/sqlite_engine.py` + `sqlite_worker.py`)
@@ -110,7 +117,18 @@ class EngineAdapter(Protocol):
 | Error mapping | `timeout`, `permission`, `limit` (เกินขนาดไฟล์ → ข้อความที่เข้าใจได้แทน "disk I/O error") |
 | Deploy | volume `sqlite-data` → `/app/var` ของ backend (เขียนได้โดย uid 10001) |
 
-MySQL: **ยังไม่มี implementation** — ไม่มี MySQL server ในสภาพแวดล้อมที่พัฒนา จึงมีเฉพาะ DDL generator และข้อมูลอ้างอิง dialect การเพิ่มทำได้ด้วย `MySQLAdapter` + การ export sample DB แบบเดียวกับ SQLite
+**MySQL sandbox** (`services/sandbox/mysql_engine.py`) — เปิดใช้เมื่อตั้งค่า `MYSQL_HOST`; ถ้าไม่ตั้ง `/api/engines` รายงานว่าไม่พร้อมใช้งาน และทุก endpoint ที่ขอ `engine=mysql` ได้ `503` พร้อมข้อความ (UI แสดงตัวเลือกเป็น disabled พร้อมเหตุผล)
+| ชั้น | กลไก |
+|---|---|
+| Server | MySQL 8.4 แยก (`sandbox-mysql`) อยู่ใน network `sandbox` (internal) · `--local-infile=0`, `--secure-file-priv=NULL` (ไม่มีคำสั่งไหนอ่าน/เขียนไฟล์ของ server ได้), `--skip-name-resolve` · container `cpus: 1.0`, `mem_limit: 1g`, `pids_limit` |
+| ข้อมูล | ตอน seed/rebuild export `ro_<key>` จาก PostgreSQL: ตาราง, PK (`AUTO_INCREMENT` สำหรับ integer PK เดี่ยว), UNIQUE/secondary index, FK, comment ของตาราง/คอลัมน์ และข้อมูลทุกแถว → `ANALYZE TABLE` · Writable = clone ด้วย `SHOW CREATE TABLE` + `INSERT … SELECT` เป็น `u_<uid>_<key>`, Reset = drop + clone ใหม่ (ฆ่า session ของผู้ใช้ก่อน) |
+| บัญชี | `sbx_reader`: `SELECT, SHOW VIEW` ราย database `ro_*` เท่านั้น + ทุก session `SET SESSION TRANSACTION READ ONLY` · `sbx_u_<uid>`: สิทธิ์ระดับ database บน `u_<uid>_*` ของตัวเอง (SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, INDEX, REFERENCES, CREATE TEMPORARY TABLES, CREATE VIEW, SHOW VIEW, TRIGGER, CREATE/ALTER ROUTINE, EXECUTE, LOCK TABLES) — **ไม่มี** FILE, SUPER, PROCESS, EVENT, CREATE USER, GRANT OPTION · `MAX_USER_CONNECTIONS` · password = HMAC(`SANDBOX_ROLE_SECRET`, ชื่อบัญชี) ไม่ถูกเก็บ |
+| Timeout | `max_execution_time` ของ MySQL ใช้ได้กับ SELECT เท่านั้น จึงใช้ watchdog: ครบเวลาแล้ว backend เปิด admin connection สั่ง `KILL QUERY <thread>` — ครอบคลุม UPDATE/DELETE/`CALL` procedure ที่วนไม่รู้จบ และ `SLEEP()` (ซึ่งคืน 1 แทน error เมื่อถูก kill จึงตรวจสถานะ watchdog เพิ่ม) |
+| Row cap | ใช้ unbuffered cursor อ่านทีละแถว ตัดที่ `MAX_RESULT_ROWS` แล้ว `KILL` connection นั้นเพื่อหยุดการส่งข้อมูลที่เหลือ |
+| ขนาด | ตรวจ `data_length + index_length` หลังรันในโหมด Writable / หลังนำเข้า CSV — เกิน `WRITABLE_DB_MAX_BYTES` แล้วรีเซ็ต (ไม่ใช่ hard quota ระหว่าง query) |
+| Concurrency | สร้าง/รีเซ็ต/export ภายใต้ `GET_LOCK()` ของ MySQL (ปลอดภัยข้าม worker/instance) |
+| Error | map รหัส MySQL → `timeout` (1317, 3024), `permission` (1044, 1142, 1227, 1290, 1792, 3948 ฯลฯ) · syntax error แปลง "near '…' at line N" เป็นบรรทัด/คอลัมน์ของทั้งสคริปต์ |
+
 
 ### 3.4 Phase 3 features บน sandbox
 | Feature | วิธีทำให้ปลอดภัย |
@@ -172,7 +190,8 @@ flowchart LR
 |---|---|---|---|
 | `main-db` | postgres:16 | `backend` | volume `main-data` |
 | `sandbox-db` | postgres:16 | `sandbox` (internal) | `cpus: 1`, `mem_limit: 1g`, custom `postgresql.conf` |
-| `backend` | python:3.13-slim | `backend`, `sandbox`, `web` | รัน `alembic upgrade head` + `python -m app.seed` ก่อน `uvicorn` |
+| `sandbox-mysql` | mysql:8.4 | `sandbox` (internal) | `cpus: 1`, `mem_limit: 1g`, `local_infile=0`, `secure_file_priv=NULL`, volume `mysql-data` |
+| `backend` | python:3.13-slim | `backend`, `sandbox`, `web` | รัน `alembic upgrade head` + `python -m app.seed` ก่อน `uvicorn` · volume `sqlite-data` |
 | `frontend` | node:22 | `web` | `BACKEND_URL=http://backend:8000` |
 
 ## 9. Observability

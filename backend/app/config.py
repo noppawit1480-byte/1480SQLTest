@@ -42,6 +42,13 @@ class Settings(BaseSettings):
     # SQLite engine: exported sample DBs + per-user writable copies (must be a writable directory)
     sqlite_dir: str = "var/sqlite"
 
+    # MySQL engine: a separate MySQL 8.x server. Leave mysql_host empty to disable the engine.
+    # Reader and per-user account passwords are derived from sandbox_role_secret (HMAC), never stored.
+    mysql_host: str = ""
+    mysql_port: int = 3306
+    mysql_admin_user: str = "root"
+    mysql_admin_password: str = ""
+
     # SQL Learning Assistant (AI layer is optional; provider keys are read from the environment only)
     rate_assistant_per_min: int = 30
     rate_assistant_ai_per_min: int = 6

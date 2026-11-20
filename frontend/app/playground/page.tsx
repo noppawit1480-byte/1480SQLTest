@@ -15,6 +15,7 @@ import { useAuth, useToast } from "@/components/providers";
 import { AssistantPanel } from "@/components/AssistantPanel";
 import { ResultView } from "@/components/ResultView";
 import { SchemaExplorer } from "@/components/SchemaExplorer";
+import { ENGINE_LABEL, EngineSelect } from "@/components/EngineSelect";
 import { SqlEditor } from "@/components/SqlEditor";
 import { Button, cx, EmptyState, ErrorState, Skeleton, Spinner } from "@/components/ui";
 
@@ -34,7 +35,7 @@ function Playground() {
   const toast = useToast();
   const [dbKey, setDbKey] = useState(params.get("db") ?? "ecommerce");
   const [mode, setMode] = useState<Mode>(params.get("mode") === "writable" ? "writable" : "readonly");
-  const [engine, setEngine] = useState<Engine>(params.get("engine") === "sqlite" ? "sqlite" : "postgresql");
+  const [engine, setEngine] = useState<Engine>((["sqlite", "mysql"] as const).find((e) => e === params.get("engine")) ?? "postgresql");
   const [plan, setPlan] = useState<ExplainResponse | null>(null);
   const [planBusy, setPlanBusy] = useState(false);
   const [sql, setSql] = useState<string>(params.get("sql") ?? "");
@@ -103,7 +104,7 @@ function Playground() {
 
   function doFormat() {
     try {
-      setSql(format(sql, { language: "postgresql", keywordCase: "upper", tabWidth: 2 }));
+      setSql(format(sql, { language: engine, keywordCase: "upper", tabWidth: 2 }));
     } catch {
       toast.push("err", "จัดรูปแบบไม่ได้ — ตรวจสอบ syntax ก่อน");
     }
@@ -147,11 +148,8 @@ function Playground() {
             {(dbs.data ?? [{ key: dbKey, name: dbKey }]).map((d) => <option key={d.key} value={d.key}>{d.name}</option>)}
           </select>
           <label className="text-[11px] font-semibold uppercase tracking-wide text-muted" htmlFor="engine-select">Engine</label>
-          <select id="engine-select" value={engine} onChange={(e) => { setEngine(e.target.value as Engine); setResult(null); setPlan(null); }}
-            className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm" data-testid="engine-select">
-            <option value="postgresql">PostgreSQL 16</option>
-            <option value="sqlite">SQLite 3</option>
-          </select>
+          <EngineSelect id="engine-select" value={engine} onChange={(e) => { setEngine(e); setResult(null); setPlan(null); }}
+            className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm" data-testid="engine-select" />
           <div className="flex items-center justify-between text-xs">
             <Link href={`/databases/${dbKey}`} className="text-brand hover:underline">ER Diagram & คำอธิบาย →</Link>
             <Link href={`/dialects?db=${dbKey}&sql=${encodeURIComponent(sql)}`} className="text-brand hover:underline">เทียบ dialect →</Link>
@@ -180,7 +178,7 @@ function Playground() {
           <Button size="sm" onClick={doFormat} title="Format SQL"><Wand2 className="size-3.5" /> Format</Button>
           <Button size="sm" onClick={() => { setSql(""); setResult(null); }} title="ล้าง editor"><Eraser className="size-3.5" /> Clear</Button>
           <Button size="sm" onClick={() => explain(false)} loading={planBusy} title="แผนการทำงาน (ไม่รัน query)" data-testid="explain-btn"><GitBranch className="size-3.5" /> Explain</Button>
-          {engine === "postgresql" && <Button size="sm" variant="ghost" onClick={() => explain(true)} title="รันจริงและวัดเวลา (DML ถูก rollback เสมอ)" data-testid="analyze-btn">Analyze</Button>}
+          {engine !== "sqlite" && <Button size="sm" variant="ghost" onClick={() => explain(true)} title="รันจริงและวัดเวลา (DML ถูก rollback เสมอ)" data-testid="analyze-btn">Analyze</Button>}
           {user && <Button size="sm" onClick={saveQuery}><Save className="size-3.5" /> Save</Button>}
           <div className="ml-auto flex items-center gap-1.5">
             <div className="flex overflow-hidden rounded-md border border-line text-xs" role="radiogroup" aria-label="โหมดฐานข้อมูล">
@@ -216,7 +214,7 @@ function Playground() {
               </button>
             ))}
             <span className={cx("ml-auto rounded px-1.5 py-0.5 text-[10px]", effectiveMode === "writable" ? "bg-warn-soft text-warn" : "bg-surface-2 text-muted")}>
-              {engine === "sqlite" ? "SQLite · " : ""}{effectiveMode === "writable" ? `Writable sandbox: u_${user?.id}_${dbKey}` : `Read-only: ${dbKey}`}
+              {engine !== "postgresql" ? `${ENGINE_LABEL[engine]} · ` : ""}{effectiveMode === "writable" ? `Writable sandbox: u_${user?.id}_${dbKey}` : `Read-only: ${dbKey}`}
             </span>
           </div>
           <div className="min-h-0 flex-1 overflow-auto scrollbar-thin p-3">

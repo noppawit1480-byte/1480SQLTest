@@ -1,6 +1,6 @@
 # Test Report
 
-> STEP 9 — ผลการทดสอบจริง ณ การส่งมอบ Phase 3 (2026-11-17) · PostgreSQL 16 · SQLite 3 (Python 3.13 stdlib) · Node 22 · Chromium (Playwright)
+> STEP 9 — ผลการทดสอบจริง · Phase 3 (2026-11-17) + MySQL engine (2026-11-20) · PostgreSQL 16 · SQLite 3 · MySQL 8.4.13 · Python 3.13 · Node 22 · Chromium (Playwright)
 
 ## สรุป
 | ชุดทดสอบ | เครื่องมือ | จำนวน | ผล |
@@ -8,14 +8,39 @@
 | Unit (checker, splitter, validator, streak/level, serialization) | pytest | 23 | ✅ 23/23 |
 | Integration — Phase 1 (API + main DB + sandbox จริง) | pytest + TestClient | 35 | ✅ 35/35 |
 | Integration — Phase 2 (projects, assistant rules + AI layer ด้วย fake provider, admin RBAC/CRUD) | pytest + TestClient | 25 | ✅ 25/25 |
-| Integration — Phase 3 (SQLite sandbox, explain/index lab, dialects, designer, CSV, challenges, leaderboard, community) | pytest + TestClient | 25 | ✅ 25/25 |
+| Integration — Phase 3 (SQLite sandbox, explain/index lab, dialects, designer, CSV, challenges, leaderboard, community, MySQL-disabled path) | pytest + TestClient | 26 | ✅ 26/26 |
+| Integration — MySQL engine (ข้อมูลตรงกับ PostgreSQL, การโจมตี sandbox, timeout ทุกชนิดคำสั่ง, writable/reset, explain, dialects, designer, CSV) | pytest + TestClient + MySQL 8.4 จริง | 13 | ✅ 13/13 |
 | Content validation (ตัวอย่าง 62 บท + เฉลย 70 โจทย์ + 10 โจทย์สัมภาษณ์ + 25 งานโปรเจกต์ รันบน sandbox; export SQLite 7 DB) | `python -m app.seed` | 167 | ✅ ผ่านทั้งหมด |
 | Type check / production build | `tsc --noEmit` · `next build` | 27 routes | ✅ |
-| End-to-End (เบราว์เซอร์จริง) | Playwright | 21 | ✅ 21/21 local · ✅ 21/21 Docker Compose |
-| Docker Compose | build + up + restart + E2E + isolation | 4 services + volume `sqlite-data` | ✅ healthy, sandbox ออก internet ไม่ได้, frontend เข้า sandbox-db ไม่ได้ |
+| End-to-End (เบราว์เซอร์จริง) | Playwright | 24 | ✅ 24/24 local · ✅ 24/24 Docker Compose |
+| Docker Compose | build + up + restart + E2E + isolation | 5 services (+ `sandbox-mysql`) + volumes `sqlite-data`, `mysql-data` | ✅ healthy ทั้งหมด · sandbox-db/sandbox-mysql ออก internet ไม่ได้ · frontend เข้า sandbox-db/sandbox-mysql ไม่ได้ · ข้อมูล Writable ของ MySQL อยู่รอดหลัง restart backend |
 
-Backend รันซ้ำ 3 รอบ: 108/108 ทุกรอบ
+Backend รันซ้ำ 3 รอบ: 122/122 ทุกรอบ · เมื่อไม่ตั้ง `MYSQL_HOST`: 109 passed, 13 skipped (test MySQL ข้ามอย่างชัดเจน ไม่ fail)
 E2E ต้องรัน backend ด้วย `RATE_AUTH_PER_MIN=200` (สมัครสมาชิก > 10 บัญชีต่อนาที) — ด้วยค่า production (10) จะได้ 429 ตามที่ออกแบบไว้
+
+## MySQL engine — สิ่งที่ทดสอบ
+| ด้าน | Test | ผล |
+|---|---|---|
+| ข้อมูลเหมือนกัน | จำนวนแถวทั้ง 31 ตารางของ 6 sample DB ตรงกับ PostgreSQL (ตรวจด้วยมือ) · ใน test: `orders`, `saas.events`, `salaries`, `transactions` และผลรวมเงิน `SUM(unit_price*quantity)` ตรงกัน | ✅ |
+| Read-only | `DELETE`, `CREATE TABLE` → ปฏิเสธพร้อมคำแนะนำ Writable · `INTO OUTFILE` ต้องใช้ FILE privilege → ปฏิเสธ · `mysql.user` → ปฏิเสธ · `SET GLOBAL` → ปฏิเสธ · `LOAD_FILE('/etc/passwd')` ได้ NULL (secure_file_priv=NULL) | ✅ |
+| Timeout | `SELECT SLEEP(30)`, `UPDATE … WHERE SLEEP(1)=0` และ `CALL` procedure ที่วนไม่รู้จบ ถูกหยุดที่ 5 วินาทีด้วย watchdog (`max_execution_time` ของ MySQL ไม่ครอบคลุม UPDATE/CALL) และ sandbox ใช้ต่อได้ | ✅ |
+| Row cap / error | recursive CTE 50,000 แถว ถูกตัดที่ 1,000 · syntax error ในคำสั่งที่ 2 ชี้บรรทัด 3 ของสคริปต์ถูกต้อง | ✅ |
+| Writable | DB แยกต่อผู้ใช้ · DB กลางไม่เปลี่ยน · อ่าน DB ของคนอื่น, `GRANT`, `CREATE USER`, `CREATE EVENT`, `LOAD DATA LOCAL` → ปฏิเสธ · Reset คืนข้อมูลเดิม | ✅ |
+| Schema / plan | FK และ comment ของตารางมาครบ · `EXPLAIN FORMAT=TREE` ใช้ `idx_orders_customer` · `EXPLAIN ANALYZE DELETE` บน writable แล้วข้อมูลยังครบ 946 แถว · หลายคำสั่ง → 422 | ✅ |
+| Dialects | `7/2` = `3.5000` บน MySQL (ต่างจาก PostgreSQL) · GROUP BY city: SQLite ตรงกับ PostgreSQL แต่ MySQL ได้กลุ่มน้อยกว่าเพราะ collation ไม่แยกตัวพิมพ์ และระบบชี้สาเหตุ (`collation`) | ✅ |
+| Designer / CSV | DDL ที่สร้างรันได้จริงบน MySQL (unique TEXT → VARCHAR(255), default ใน TEXT/CURRENT_DATE ใส่วงเล็บ) · FK บังคับใช้ · CSV → DECIMAL ขนาดตามข้อมูล, ค่าว่างเป็น NULL · ตารางซ้ำโดยไม่ replace → 422 | ✅ |
+| ไม่ได้ตั้งค่า MySQL | `/api/engines` รายงาน `available: false` พร้อมเหตุผล · execute → 503 · dialects รันแค่ 2 engine | ✅ |
+| E2E | Playground บน MySQL (ผล `3.5000`, plan มี index, DELETE ใน read-only ถูกปฏิเสธ) · Dialects 3 engine พร้อมคำอธิบาย collation · Designer สร้างตารางใน MySQL และ `SHOW CREATE TABLE` มี FOREIGN KEY | ✅ |
+
+## Bugs ที่พบระหว่างพัฒนา MySQL engine และแก้แล้ว
+| # | พบจาก | ปัญหา | การแก้ |
+|---|---|---|---|
+| 17 | การโจมตีทดสอบ | `SELECT SLEEP(30)` ที่ถูก `KILL QUERY` คืนค่า 1 แทน error จึงแสดงเป็น "สำเร็จ" | ถ้า watchdog ทำงาน ให้รายงานเป็น timeout เสมอ |
+| 18 | การโจมตีทดสอบ | ข้อความ "โหมด Read-only แก้ไขไม่ได้" ติดไปกับการปฏิเสธที่ไม่ใช่การเขียน (เช่นอ่าน `mysql.user`) | แยกข้อความตามชนิดการปฏิเสธ |
+| 19 | รัน DDL จริง | DDL MySQL จาก Designer (ก่อนหน้านี้เป็นแค่ข้อความ) สร้าง `TEXT UNIQUE` ซึ่ง MySQL ไม่รับ และ default ของ TEXT/CURRENT_DATE ผิด syntax | ใช้ VARCHAR(255) สำหรับคอลัมน์ที่ต้องมี index และใส่วงเล็บให้ expression default |
+| 20 | plan parser | เวลาใน `EXPLAIN ANALYZE` เป็นเลขยกกำลัง (`858e-6`) ทำให้ node นั้นไม่มีเวลาจริง | regex รองรับ notation นี้ |
+| 21 | Docker build | pin `PyMySQL==2.2.8` ผิด (อ่านจาก `pymysql.__version__` ซึ่งเป็นเลขเวอร์ชันเข้ากันได้กับ MySQLdb) | pin เวอร์ชันจริง `PyMySQL==1.2.4` |
+| 22 | Dialects | ข้อความเทียบผลใช้คำแนะนำของระบบตรวจคำตอบ ("ตรวจ WHERE/JOIN") ซึ่งไม่เกี่ยว | ตัดคำแนะนำนั้นและบอกสาเหตุ collation เมื่อเกี่ยวข้อง |
 
 ## Phase 3 — สิ่งที่ทดสอบ
 | ด้าน | Test | ผล |
@@ -24,7 +49,7 @@ E2E ต้องรัน backend ด้วย `RATE_AUTH_PER_MIN=200` (สม�
 | SQLite security | `DELETE` ในโหมด read-only, `ATTACH '/etc/passwd'`, `PRAGMA writable_schema`, `load_extension` → ถูกปฏิเสธพร้อมข้อความ | ✅ |
 | SQLite limits | recursive CTE ไม่รู้จบ → timeout (ตรวจซ้ำด้วยมือใน container ด้วย) · ผลเกิน `MAX_RESULT_ROWS` ถูกตัดที่ 1,000 แถว | ✅ |
 | SQLite writable | แยกต่อผู้ใช้ · ไม่กระทบ read-only · Reset คืนค่าเดิม · schema มี FK · History จำ engine · engine ที่ไม่รองรับ → 422 | ✅ |
-| Dialect comparison | GROUP BY ที่ได้ผลเหมือนกันทั้งสอง engine → `same: true` · `DATE_TRUNC … ::date` รันได้เฉพาะ PostgreSQL → `same: false` และตรวจพบ feature `date_trunc`, `cast_op`, `limit` · ตารางอ้างอิง ≥ 20 หัวข้อ | ✅ |
+| Dialect comparison | GROUP BY ที่ได้ผลเหมือนกันบน SQLite → `engines.sqlite.same: true` · `DATE_TRUNC … ::date` รันได้เฉพาะ PostgreSQL → `same: false` และตรวจพบ feature `date_trunc`, `cast_op`, `limit` · ตารางอ้างอิง ≥ 20 หัวข้อ | ✅ |
 | Explain / Analyze | ANALYZE มีเวลา execution · `EXPLAIN ANALYZE DELETE FROM payments` บน writable sandbox แล้วข้อมูลยังครบ 946 แถว · SQLite plan ใช้ index `idx_orders_customer` · หลาย statement → 422 | ✅ |
 | Index lab | ก่อน: Seq Scan บน `saas.events` · หลัง: index ใหม่ถูกใช้ (ทดลองด้วยมือวัดได้เร็วขึ้น ~10×) · `DROP TABLE` แทน `CREATE INDEX` → 422 · guest → 401 · index ไม่ค้างในฐานข้อมูลกลาง | ✅ |
 | Designer | DDL 3 dialect (identity/AUTOINCREMENT, ON DELETE CASCADE) + Mermaid · ชื่อตารางแบบ injection (`t1); DROP TABLE x;--`) ถูกปฏิเสธและไม่สร้าง DDL · FK ที่ชี้คอลัมน์ที่ไม่ใช่ PK/UNIQUE ถูกเตือน · reverse-engineer `hr` · apply สร้างตารางจริงบน PostgreSQL และ SQLite และ **FK ถูกบังคับใช้ทั้งสอง engine** · แบบของคนอื่น → 404 | ✅ |
@@ -76,7 +101,7 @@ E2E ต้องรัน backend ด้วย `RATE_AUTH_PER_MIN=200` (สม�
 
 ## รายละเอียดผลทดสอบ
 
-### Backend (pytest -v) — 108 passed
+### Backend (pytest -v) — 122 passed
 - integration/test_api.py::test_register_login_logout_flow ✅
 - integration/test_api.py::test_register_validation_and_duplicate ✅
 - integration/test_api.py::test_protected_endpoints_require_login ✅
@@ -103,6 +128,14 @@ E2E ต้องรัน backend ด้วย `RATE_AUTH_PER_MIN=200` (สม�
 - integration/test_api.py::test_databases_and_er ✅
 - integration/test_api.py::test_concurrent_first_use_of_writable_db ✅
 - integration/test_api.py::test_zero_row_select_keeps_column_headers ✅
+- integration/test_mysql.py::test_engine_listed_and_same_data ✅
+- integration/test_mysql.py::test_load_file_cannot_read_server_files ✅
+- integration/test_mysql.py::test_timeouts_cover_non_select_statements ✅
+- integration/test_mysql.py::test_row_cap_and_syntax_error_position ✅
+- integration/test_mysql.py::test_writable_isolated_privileges_and_reset ✅
+- integration/test_mysql.py::test_schema_explain_and_analyze_rollback ✅
+- integration/test_mysql.py::test_dialect_comparison_shows_real_mysql_differences ✅
+- integration/test_mysql.py::test_designer_apply_and_csv_import ✅
 - integration/test_phase2.py::test_projects_list_and_detail ✅
 - integration/test_phase2.py::test_completing_a_project_awards_achievement ✅
 - integration/test_phase2.py::test_saas_jsonb_task_accepts_equivalent_sql ✅
@@ -149,6 +182,7 @@ E2E ต้องรัน backend ด้วย `RATE_AUTH_PER_MIN=200` (สม�
 - integration/test_phase3.py::test_leaderboard_and_opt_out ✅
 - integration/test_phase3.py::test_discussion_spoilers_votes_and_ownership ✅
 - integration/test_phase3.py::test_moderation ✅
+- integration/test_phase3.py::test_mysql_disabled_is_reported_not_faked ✅
 - unit/test_checker.py::test_identical_results_are_correct ✅
 - unit/test_checker.py::test_row_order_ignored_when_not_required ✅
 - unit/test_checker.py::test_row_order_enforced_when_required ✅
@@ -173,7 +207,10 @@ E2E ต้องรัน backend ด้วย `RATE_AUTH_PER_MIN=200` (สม�
 - unit/test_sql_tools.py::test_streak ✅
 - unit/test_sql_tools.py::test_levels ✅
 
-### E2E (Playwright) — 21 passed (local และ Docker Compose stack)
+### E2E (Playwright) — 24 passed (local และ Docker Compose stack)
+- ✅ [mysql] playground runs on MySQL, shows a plan, and writes go to the learner's own MySQL database
+- ✅ [mysql] dialect comparison runs on three engines and explains MySQL's case-insensitive grouping
+- ✅ [mysql] ER designer creates the tables in MySQL
 - ✅ [phase2] projects: brief, tasks, and a task page linked back to its project
 - ✅ [phase2] assistant (rules) explains, reviews and optimizes without any AI key
 - ✅ [phase2] assistant explains the last SQL error
@@ -197,7 +234,7 @@ E2E ต้องรัน backend ด้วย `RATE_AUTH_PER_MIN=200` (สม�
 - ✅ [platform] mobile layout uses a drawer menu
 
 ## สิ่งที่ยังไม่ได้ทดสอบ / ข้อจำกัดที่ทราบ
-- **MySQL engine ไม่มี** — ไม่ได้ทดสอบเพราะไม่ได้ implement (DDL ของ MySQL จาก Designer ไม่ได้ถูกรันบน MySQL จริง)
+- MySQL: ไม่ได้ทดสอบ load (ผู้ใช้พร้อมกันจำนวนมาก) · ขนาด DB ส่วนตัวตรวจหลังรันแต่ละครั้ง ไม่ใช่ hard quota · ทดสอบกับ MySQL 8.4 เท่านั้น (ไม่ได้ทดสอบ MariaDB)
 - SQLite worker ใช้ rlimit ของ Linux — ทดสอบบน Linux (local + container) เท่านั้น
 - Challenges/leaderboard ไม่ได้ทดสอบภายใต้ผู้ใช้พร้อมกันจำนวนมาก (ไม่มี load test)
 - **AI layer กับ Claude API จริง** — ไม่มี `ANTHROPIC_API_KEY` ในสภาพแวดล้อมนี้ จึงทดสอบเส้นทาง AI ด้วย fake provider (context, นโยบายไม่เฉลย, การตรวจโจทย์ที่สร้าง, error handling) ส่วนการเรียก SDK จริงยังไม่ได้รัน — ควรทดสอบ smoke test หลังใส่ key

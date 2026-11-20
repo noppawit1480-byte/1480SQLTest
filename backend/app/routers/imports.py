@@ -31,7 +31,7 @@ class ColumnIn(BaseModel):
 
 class ImportIn(PreviewIn):
     db_key: str = Field(default="blank", pattern=r"^[a-z][a-z0-9_]{1,30}$")
-    engine: Literal["postgresql", "sqlite"] = "postgresql"
+    engine: Literal["postgresql", "sqlite", "mysql"] = "postgresql"
     table_name: str = Field(pattern=r"^[a-z_][a-z0-9_]{0,62}$")
     columns: list[ColumnIn] | None = None
     replace: bool = False
@@ -62,6 +62,11 @@ def do_import(body: ImportIn, request: Request, db: Session = Depends(get_db), u
         target = eng.ensure_user_db(user.id, body.db_key)
         if body.engine == "postgresql":
             n = csv_import.import_postgres(eng, target, body.table_name, columns, data, body.replace)
+        elif body.engine == "mysql":
+            n = csv_import.import_mysql(eng, target, body.table_name, columns, data, body.replace)
+            if eng.user_db_size(user.id, body.db_key) > get_settings().writable_db_max_bytes:
+                eng.reset_user_db(user.id, body.db_key)
+                raise csv_import.CsvError("ฐานข้อมูลส่วนตัวเกินขนาดที่กำหนด จึงถูกรีเซ็ต")
         else:
             n = csv_import.import_sqlite(target.database, body.table_name, columns, data, body.replace)
             if os.path.getsize(target.database) > get_settings().writable_db_max_bytes:

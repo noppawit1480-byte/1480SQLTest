@@ -152,6 +152,10 @@ def generate_ddl(design: dict, dialect: str = "postgresql") -> str:
     order = _ordered(tables, rels)
     position = {t["name"]: i for i, t in enumerate(order)}
     stmts, deferred = [], []
+    keyed: dict[str, set[str]] = {}  # columns used in foreign keys (both ends) — they need an indexable type in MySQL
+    for r in rels:
+        keyed.setdefault(r["from_table"], set()).add(r["from_column"])
+        keyed.setdefault(r["to_table"], set()).add(r["to_column"])
     for t in order:
         lines = []
         pks = [c["name"] for c in t["columns"] if c.get("pk")]
@@ -161,7 +165,10 @@ def generate_ddl(design: dict, dialect: str = "postgresql") -> str:
                 parts.append({"postgresql": f"{c['type'].lower()} GENERATED ALWAYS AS IDENTITY",
                               "sqlite": "INTEGER", "mysql": f"{c['type'].upper()} AUTO_INCREMENT"}[dialect])
             else:
-                parts.append(_col_type(c["type"], dialect))
+                ctype = _col_type(c["type"], dialect)
+                if dialect == "mysql" and ctype == "TEXT" and (c.get("pk") or c.get("unique") or c["name"] in keyed.get(t["name"], ())):
+                    ctype = "VARCHAR(255)"  # MySQL cannot index TEXT without a prefix length
+                parts.append(ctype)
             if len(pks) == 1 and c.get("pk"):
                 parts.append("PRIMARY KEY" + (" AUTOINCREMENT" if dialect == "sqlite" and c.get("identity") else ""))
             if c.get("not_null") and not c.get("pk"):
@@ -169,7 +176,10 @@ def generate_ddl(design: dict, dialect: str = "postgresql") -> str:
             if c.get("unique") and not c.get("pk"):
                 parts.append("UNIQUE")
             if c.get("default") not in (None, ""):
-                parts.append("DEFAULT " + _default(c["default"], dialect))
+                dflt = _default(c["default"], dialect)
+                if dialect == "mysql" and (parts[1] in ("TEXT", "JSON") or dflt == "CURRENT_DATE"):
+                    dflt = f"({dflt})"  # MySQL 8 only accepts expression defaults in parentheses here
+                parts.append("DEFAULT " + dflt)
             lines.append("  " + " ".join(parts))
         if len(pks) > 1:
             lines.append(f"  PRIMARY KEY ({', '.join(q(p) for p in pks)})")
