@@ -1,14 +1,10 @@
 import type { NextConfig } from "next";
 
-// The browser only talks to Next.js; /api/* is proxied to FastAPI so the session cookie is
-// first-party and no permissive CORS is needed.
-const backend = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
+// The browser only talks to Next.js; /api/* is forwarded to FastAPI by proxy.ts (read at runtime:
+// BACKEND_URL, PROXY_SECRET) so the session cookie is first-party and no permissive CORS is needed.
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  async rewrites() {
-    return [{ source: "/api/:path*", destination: `${backend}/api/:path*` }];
-  },
   async headers() {
     return [
       {

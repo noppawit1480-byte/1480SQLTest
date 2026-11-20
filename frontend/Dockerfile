@@ -6,9 +6,7 @@ RUN npm ci --no-audit --no-fund
 
 FROM node:22-alpine AS build
 WORKDIR /app
-# rewrites are resolved at build time — the backend address inside the compose network
-ARG BACKEND_URL=http://backend:8000
-ENV BACKEND_URL=$BACKEND_URL NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_TELEMETRY_DISABLED=1
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=deps /app/public ./public
 COPY . .
@@ -16,7 +14,9 @@ RUN npm run build
 
 FROM node:22-alpine AS run
 WORKDIR /app
-ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+# proxy.ts reads these at runtime: where FastAPI is, and (optional) the shared secret it requires
+ARG BACKEND_URL=http://backend:8000
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0 BACKEND_URL=$BACKEND_URL
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public

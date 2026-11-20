@@ -5,6 +5,7 @@ Good for a single backend instance. For horizontal scaling swap `_buckets` for R
 """
 from __future__ import annotations
 
+import hmac
 import threading
 import time
 
@@ -14,11 +15,23 @@ _buckets: dict[str, tuple[float, float]] = {}
 _lock = threading.Lock()
 
 
+def client_ip(request: Request) -> str:
+    """The learner's IP. Behind the trusted Next.js proxy (shared secret verified) use the IP it forwards;
+    never trust forwarded headers otherwise, since any client could set them."""
+    from app.config import get_settings
+    secret = get_settings().trusted_proxy_secret
+    if secret and hmac.compare_digest(request.headers.get("x-sqlab-proxy-secret", ""), secret):
+        fwd = request.headers.get("x-sqlab-client-ip", "").strip()
+        if fwd and len(fwd) <= 64:
+            return fwd
+    return request.client.host if request.client else "unknown"
+
+
 def _client_key(request: Request) -> str:
     uid = getattr(request.state, "user_id", None)
     if uid:
         return f"u:{uid}"
-    return f"ip:{request.client.host if request.client else 'unknown'}"
+    return f"ip:{client_ip(request)}"
 
 
 def check_rate(request: Request, bucket: str, per_minute: int) -> None:

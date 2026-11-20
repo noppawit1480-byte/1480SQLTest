@@ -39,6 +39,11 @@ class Settings(BaseSettings):
 
     timezone: str = "Asia/Bangkok"
 
+    # Production with the frontend on another host (e.g. Vercel): the Next.js proxy sends this shared secret on every
+    # /api request. When set, requests without it are refused (403) and the forwarded client IP is trusted for rate
+    # limiting. Leave empty when the backend is only reachable from a frontend on the same private network.
+    trusted_proxy_secret: str = ""
+
     # SQLite engine: exported sample DBs + per-user writable copies (must be a writable directory)
     sqlite_dir: str = "var/sqlite"
 
