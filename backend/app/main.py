@@ -1,3 +1,4 @@
+import hmac
 import logging
 import time
 import uuid
@@ -6,6 +7,7 @@ from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.config import get_settings
 from app.routers import admin, assistant, auth, challenges, designs, dialects, discussions, imports, learn, me, optimize, playground, practice, projects
 from app.services.sandbox.mysql_engine import MySQLUnavailable
 from app.services.sandbox.postgres import SandboxBusy
@@ -24,6 +26,12 @@ for r in (auth.router, me.router, learn.router, practice.router, projects.router
 async def request_context(request: Request, call_next):
     rid = request.headers.get("x-request-id") or uuid.uuid4().hex[:12]
     start = time.perf_counter()
+    secret = get_settings().trusted_proxy_secret
+    if secret and request.url.path.startswith("/api") and request.url.path != "/api/health" \
+            and not hmac.compare_digest(request.headers.get("x-sqlab-proxy-secret", ""), secret):
+        log.warning("rid=%s refused direct request %s %s (missing/invalid proxy secret)", rid, request.method, request.url.path)
+        return JSONResponse(status_code=403, content={"detail": "เข้าถึง API ได้ผ่านหน้าเว็บเท่านั้น"},
+                            headers={"X-Request-ID": rid})
     response = await call_next(request)
     response.headers["X-Request-ID"] = rid
     response.headers["X-Content-Type-Options"] = "nosniff"

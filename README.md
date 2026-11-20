@@ -24,7 +24,7 @@ cp .env.example .env      # แก้ค่า CHANGE_ME ทั้งหมด
 docker compose up -d --build
 # → http://localhost:3000
 ```
-รายละเอียด (รวมการรันแบบไม่ใช้ Docker): [docs/INSTALL.md](docs/INSTALL.md)
+รายละเอียด (รวมการรันแบบไม่ใช้ Docker): [docs/INSTALL.md](docs/INSTALL.md) · Production (Vercel + VPS): [docs/DEPLOY.md](docs/DEPLOY.md)
 
 ## Tech stack
 Next.js 16 · React 19 · TypeScript · Tailwind CSS 4 · Monaco Editor · Recharts · Mermaid — FastAPI · SQLAlchemy 2 · Alembic · psycopg 3 · pglast (libpg_query) · argon2 · anthropic SDK (optional) — PostgreSQL 16 ×2 (main + sandbox) · SQLite 3 · MySQL 8.4 + PyMySQL (engine ที่สอง/สาม) — Docker Compose · pytest · Playwright
@@ -41,7 +41,7 @@ Authentication ใช้ session ฝั่ง server ของ FastAPI (token �
 | STEP 5–6 User Flow, Sitemap, หน้าจอหลัก | [docs/04-user-flow-sitemap.md](docs/04-user-flow-sitemap.md) |
 | STEP 7 Roadmap & สถานะ | [docs/05-roadmap.md](docs/05-roadmap.md) |
 | STEP 9 Test Report | [docs/TEST_REPORT.md](docs/TEST_REPORT.md) |
-| STEP 10 Installation / User Guide | [docs/INSTALL.md](docs/INSTALL.md) · [docs/USER_GUIDE.md](docs/USER_GUIDE.md) |
+| STEP 10 Installation / Deploy / User Guide | [docs/INSTALL.md](docs/INSTALL.md) · [docs/DEPLOY.md](docs/DEPLOY.md) · [docs/USER_GUIDE.md](docs/USER_GUIDE.md) |
 | API | [docs/API.md](docs/API.md) · Swagger UI ที่ `/api/docs` · [docs/openapi.json](docs/openapi.json) |
 
 ## Project structure

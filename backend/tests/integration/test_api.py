@@ -228,3 +228,25 @@ def test_zero_row_select_keeps_column_headers(anon):
     rs = d["result_sets"][0]
     assert d["ok"] and rs["row_count"] == 0 and [c["name"] for c in rs["columns"]] == ["id", "name"]
     assert rs["command"] == "SELECT 0"
+
+
+def test_trusted_proxy_secret_enforced_and_client_ip_used(monkeypatch):
+    from app.config import get_settings
+    from app.ratelimit import reset_all
+    monkeypatch.setattr(get_settings(), "trusted_proxy_secret", "s3cret-for-test")
+    c = make_client()
+    assert c.get("/api/health").status_code == 200                       # load balancer health checks stay open
+    assert c.get("/api/courses").status_code == 403                 # direct access without the proxy
+    assert c.get("/api/courses", headers={"x-sqlab-proxy-secret": "wrong"}).status_code == 403
+    ok = {"x-sqlab-proxy-secret": "s3cret-for-test"}
+    assert c.get("/api/courses", headers=ok).status_code == 200
+    # rate limits are per forwarded learner IP, not per proxy IP
+    reset_all()
+    bad = {"email": "nobody@example.com", "password": "wrong-password"}
+    codes_a = [c.post("/api/auth/login", json=bad, headers=ok | {"x-sqlab-client-ip": "198.51.100.1"}).status_code
+               for _ in range(get_settings().rate_auth_per_min + 1)]
+    assert codes_a[-1] == 429
+    assert c.post("/api/auth/login", json=bad, headers=ok | {"x-sqlab-client-ip": "198.51.100.2"}).status_code == 401
+    # a forged client IP without the secret is ignored (and refused)
+    assert c.post("/api/auth/login", json=bad, headers={"x-sqlab-client-ip": "198.51.100.3"}).status_code == 403
+    reset_all()

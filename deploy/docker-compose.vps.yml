@@ -1,0 +1,31 @@
+# Production on a VPS with the frontend hosted on Vercel:
+#   docker compose -f docker-compose.yml -f deploy/docker-compose.vps.yml up -d --build
+# * no frontend container (Vercel serves the Next.js app and proxies /api here)
+# * Caddy terminates HTTPS (automatic Let's Encrypt certificate) and forwards /api to the backend
+# * the backend refuses every /api request that lacks TRUSTED_PROXY_SECRET, so only the Vercel proxy can use it
+services:
+  frontend:
+    profiles: ["self-hosted-frontend"]   # not started on the VPS
+
+  backend:
+    environment:
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}   # HTTPS everywhere in production; false only for local rehearsal over plain HTTP
+      TRUSTED_PROXY_SECRET: ${TRUSTED_PROXY_SECRET:?set TRUSTED_PROXY_SECRET in .env}
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      backend: { condition: service_healthy }
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS in .env (e.g. 203-0-113-10.sslip.io)}
+    ports: ["80:80", "443:443", "443:443/udp"]
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [web]
+
+volumes:
+  caddy-data: {}
+  caddy-config: {}

@@ -3,6 +3,7 @@
 - Base path: `/api` (เบราว์เซอร์เรียกผ่าน Next.js same-origin proxy; ตรงไปที่ FastAPI ได้ที่ `http://backend:8000/api`)
 - Interactive docs (Swagger UI): **`/api/docs`** · OpenAPI spec: `/api/openapi.json` (สำเนาอยู่ที่ [`docs/openapi.json`](openapi.json))
 - Auth: session cookie `sqlab_session` (httpOnly, SameSite=Lax) ได้จาก register/login
+- Production แยก host (Vercel + VPS): เมื่อตั้ง `TRUSTED_PROXY_SECRET` ทุก `/api` (ยกเว้น `/api/health`) ต้องมี header `x-sqlab-proxy-secret` ที่ตรงกัน มิฉะนั้น `403` — header นี้ใส่โดย `frontend/proxy.ts` ฝั่ง server เท่านั้น (ดู docs/DEPLOY.md)
 - Error format: `{"detail": "ข้อความภาษาไทย"}` · validation (422): `{"detail": "...", "errors": [{"field", "message"}]}`
 - Rate limit: execute/run/submit/preview 60 ครั้ง/นาที, auth 10 ครั้ง/นาที (`RATE_AUTH_PER_MIN`), reset 10 ครั้ง/นาที → `429` + header `Retry-After`
 

@@ -1,0 +1,20 @@
+# SITE_ADDRESS is a hostname that resolves to this server, e.g. 203-0-113-10.sslip.io (no domain needed)
+# or your own domain later. Caddy obtains and renews the HTTPS certificate automatically.
+{$SITE_ADDRESS} {
+	encode zstd gzip
+	request_body {
+		max_size 8MB
+	}
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+	handle {
+		respond "SQLab API — the web app is served from the frontend host." 404
+	}
+	header {
+		-Server
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+	}
+	log
+}
