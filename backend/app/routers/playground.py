@@ -47,7 +47,7 @@ def execute(body: ExecuteIn, request: Request, db: Session = Depends(get_db),
         target = sb.readonly_target(body.db_key)
     result = sb.execute(target, body.sql)
     if body.mode == "writable" and user is not None:
-        size = sb.user_db_size(user.id, body.db_key) if body.engine == "postgresql" else os.path.getsize(target.database)
+        size = os.path.getsize(target.database) if body.engine == "sqlite" else sb.user_db_size(user.id, body.db_key)
         if size > get_settings().writable_db_max_bytes:
             sb.reset_user_db(user.id, body.db_key)
             result.notices.append(f"Sandbox มีขนาดเกิน {get_settings().writable_db_max_bytes // 1048576} MB จึงถูกรีเซ็ตอัตโนมัติ")
@@ -143,8 +143,8 @@ def readonly_schema(db_key: str, engine: str = "postgresql") -> list[dict]:
 
 
 def _engine_param(engine: str) -> str:
-    if engine not in ("postgresql", "sqlite"):
-        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "engine ต้องเป็น postgresql หรือ sqlite")
+    if engine not in ("postgresql", "sqlite", "mysql"):
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "engine ต้องเป็น postgresql, sqlite หรือ mysql")
     return engine
 
 

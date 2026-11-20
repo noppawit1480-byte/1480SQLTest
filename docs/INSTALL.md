@@ -53,7 +53,7 @@ docker compose exec main-db psql -U sqlab -d sqlab -c "UPDATE users SET role='ad
 - ใช้ secret ที่ยาวและสุ่มทุกตัว; อย่า commit `.env`
 - ปรับ `cpus`/`mem_limit` ของ `sandbox-db` ตามจำนวนผู้ใช้
 - ถ้าเปิด AI: backend ต้องออก HTTPS ไปยัง `api.anthropic.com` ได้ (network `web`) — sandbox ยังคงอยู่ใน network ภายในที่ไม่มี internet
-- สำรองข้อมูล volume `main-data` (sandbox สร้างใหม่ได้ทั้งหมดด้วย seed) และ `sqlite-data` ถ้าต้องการเก็บฐานข้อมูล SQLite ส่วนตัวของผู้เรียน (สำเนา read-only ถูก export ใหม่ทุกครั้งที่ seed)
+- สำรองข้อมูล volume `main-data` (sandbox สร้างใหม่ได้ทั้งหมดด้วย seed) และ `sqlite-data` / `mysql-data` ถ้าต้องการเก็บฐานข้อมูล SQLite ส่วนตัวของผู้เรียน (สำเนา read-only ถูก export ใหม่ทุกครั้งที่ seed)
 - `sqlite-data` (mount ที่ `/app/var` ของ backend) ต้องเขียนได้โดย user `app` (uid 10001) — image สร้างโฟลเดอร์นี้ให้แล้ว ถ้าเปลี่ยนเป็น bind mount ให้ `chown 10001` เอง
 - ถ้า scale backend หลาย instance: เปลี่ยน rate limiter เป็น Redis (`app/ratelimit.py` มี interface เดียว) — การสร้าง/รีเซ็ต DB ใช้ PostgreSQL advisory lock จึงปลอดภัยข้าม instance อยู่แล้ว · ไฟล์ SQLite ต้องอยู่บน shared volume เดียวกัน
 
@@ -62,7 +62,7 @@ docker compose exec main-db psql -U sqlab -d sqlab -c "UPDATE users SET role='ad
 |---|---|---|
 | `web` | frontend, backend | ✅ (เปิด port 3000) |
 | `core` | backend, main-db | ❌ internal |
-| `sandbox` | backend, sandbox-db | ❌ internal |
+| `sandbox` | backend, sandbox-db, sandbox-mysql | ❌ internal |
 
 ---
 
@@ -80,6 +80,16 @@ pg_ctl -D ~/pg/sandbox -o "-p 5434" -l ~/pg/sandbox.log start
 psql -p 5433 -U postgres -c "CREATE USER app PASSWORD 'app'"
 psql -p 5433 -U postgres -c "CREATE DATABASE sqlplatform OWNER app"
 ```
+
+### 1b. MySQL (ไม่บังคับ — สำหรับ engine MySQL)
+ถ้าไม่ตั้ง `MYSQL_HOST` ระบบทำงานได้ปกติด้วย PostgreSQL + SQLite และหน้าเว็บแสดง MySQL ว่า "ไม่พร้อมใช้งาน"
+ถ้าต้องการเปิด ให้ใช้ MySQL 8.4 ที่ **แยกจากฐานข้อมูลอื่น** และเปิดด้วยตัวเลือกความปลอดภัยเดียวกับใน compose:
+```bash
+docker run -d --name sqlab-mysql -p 127.0.0.1:3307:3306 -e MYSQL_ROOT_PASSWORD=<รหัส root> mysql:8.4 \
+  --local-infile=0 --secure-file-priv=NULL --skip-name-resolve --character-set-server=utf8mb4 --default-time-zone=+00:00
+```
+แล้วใน `backend/.env` ตั้ง `MYSQL_HOST=127.0.0.1`, `MYSQL_PORT=3307`, `MYSQL_ADMIN_USER=root`, `MYSQL_ADMIN_PASSWORD=<รหัส root>`
+— `python -m app.seed` จะ export sample DB ทั้งหมดไป MySQL และสร้างบัญชี `sbx_reader` ให้เอง (รหัสบัญชีผู้เรียนคำนวณจาก `SANDBOX_ROLE_SECRET`)
 
 ### 2. Backend
 ```bash
@@ -102,7 +112,7 @@ npm run dev          # http://localhost:3000  (proxy /api → http://127.0.0.1:8
 
 ### 4. Tests
 ```bash
-cd backend && pytest                 # unit + integration (ต้องมี DB ทั้งสองตัวและ seed แล้ว)
+cd backend && pytest                 # unit + integration (ต้องมี DB ทั้งสองตัวและ seed แล้ว; test MySQL ถูก skip ถ้าไม่ตั้ง MYSQL_HOST)
 cd frontend && npm run typecheck
 cd frontend && npm run build && npm run start &   # หรือ docker compose up
 cd frontend && npx playwright test --trace off   # E2E (E2E_BASE_URL=http://host:port ถ้าไม่ใช่ :3000)

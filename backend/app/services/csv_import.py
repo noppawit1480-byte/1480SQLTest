@@ -177,3 +177,69 @@ def import_sqlite(path: str, table: str, columns: list[dict], data: list[list[st
     finally:
         conn.close()
     return len(data)
+
+
+def _mysql_decimal(values: list[str]) -> str:
+    """Size DECIMAL(p,s) from the data (MySQL has no unbounded NUMERIC)."""
+    ints, scale = 1, 0
+    for v in values:
+        if v == "" or "e" in v.lower():
+            continue
+        whole, _, frac = v.lstrip("+-").partition(".")
+        ints, scale = max(ints, len(whole.lstrip("0")) or 1), max(scale, len(frac))
+    scale = min(scale, 10)
+    return f"DECIMAL({min(ints + scale, 65)},{scale})"
+
+
+def _mysql_value(v: str, t: str):
+    if v == "":
+        return None
+    if t == "timestamp":
+        d = datetime.fromisoformat(v.replace("Z", "+00:00"))
+        if d.tzinfo is not None:
+            from datetime import UTC
+            d = d.astimezone(UTC).replace(tzinfo=None)
+        return d
+    if t == "numeric" and "e" in v.lower():
+        return format(float(v), "f")
+    return _convert(v, t)
+
+
+def import_mysql(sandbox, target, table: str, columns: list[dict], data: list[list[str]], replace: bool) -> int:
+    """Runs as the learner's own MySQL account (only privileges on their own databases), in one transaction."""
+    import pymysql
+    types = []
+    for i, c in enumerate(columns):
+        t = c["type"]
+        types.append({"integer": "INT", "bigint": "BIGINT", "boolean": "BOOLEAN", "date": "DATE", "text": "TEXT",
+                      "timestamp": "DATETIME(6)" if any("." in r[i] for r in data) else "DATETIME"}.get(t)
+                     or _mysql_decimal([r[i] for r in data]))
+    q = lambda n: f"`{n}`"  # noqa: E731 — names are already sanitized to [a-z_][a-z0-9_]*
+    conn = sandbox._connect(target.user, target.password, target.database)
+    try:
+        with conn.cursor() as cur:
+            cur.execute("SELECT 1 FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = %s", (table,))
+            exists = cur.fetchone() is not None
+            if exists and not replace:
+                raise CsvError(f"มีตาราง '{table}' อยู่แล้ว — เลือก 'แทนที่ตารางเดิม' หรือเปลี่ยนชื่อ")
+            if exists:
+                cur.execute(f"DROP TABLE {q(table)}")
+            cur.execute(f"CREATE TABLE {q(table)} (" + ", ".join(f"{q(c['name'])} {t}" for c, t in zip(columns, types, strict=True))
+                        + ") ENGINE=InnoDB")
+            conn.begin()
+            marks = ", ".join(["%s"] * len(columns))
+            rows = []
+            for i, r in enumerate(data):
+                try:
+                    rows.append([_mysql_value(v, c["type"]) for v, c in zip(r, columns, strict=True)])
+                except ValueError as e:
+                    raise CsvError(f"แถวที่ {i + 1}: {e}") from None
+            for start in range(0, len(rows), 1000):
+                cur.executemany(f"INSERT INTO {q(table)} VALUES ({marks})", rows[start:start + 1000])
+            conn.commit()
+    except pymysql.Error as e:
+        conn.rollback()
+        raise CsvError(f"นำเข้าไม่สำเร็จ: {e.args[1] if len(e.args) > 1 else e}") from None
+    finally:
+        conn.close()
+    return len(data)

@@ -256,7 +256,7 @@ erDiagram
 - `users.show_on_leaderboard` (opt-out) · `exercises.is_interview` (ชุดโจทย์ Mock Interview ไม่ปนกับแบบฝึกหัด) · `query_history.engine`, `saved_queries.engine`
 - `posts` อ้างเป้าหมายด้วย `(target_type, target_key)` + index แทน FK สองชุด เพราะบทเรียน/โจทย์อาจถูกแก้รหัสโดย admin และกระทู้ควรอยู่ต่อ
 - Leaderboard คำนวณสดจาก `submissions` (คำตอบถูกครั้งแรกของแต่ละข้อ) และ `challenge_sessions` — ไม่มีตารางสรุปที่ต้อง sync
-- ฐานข้อมูล SQLite ไม่อยู่ใน main DB: เป็นไฟล์ใน `var/sqlite/` (ดู architecture §3.3)
+- ฐานข้อมูล SQLite ไม่อยู่ใน main DB: เป็นไฟล์ใน `var/sqlite/` · ฐานข้อมูล MySQL อยู่บน server `sandbox-mysql` แยก (`ro_<key>`, `u_<uid>_<key>`) — ไม่มีตารางใหม่ใน main DB สำหรับ MySQL (ดู architecture §3.3)
 
 ## 2. Design decisions
 | เรื่อง | การตัดสินใจ | เหตุผล |

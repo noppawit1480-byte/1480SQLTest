@@ -7,6 +7,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.routers import admin, assistant, auth, challenges, designs, dialects, discussions, imports, learn, me, optimize, playground, practice, projects
+from app.services.sandbox.mysql_engine import MySQLUnavailable
 from app.services.sandbox.postgres import SandboxBusy
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -43,10 +44,25 @@ async def sandbox_busy(request: Request, exc: SandboxBusy):
                         content={"detail": "คุณมี query ที่กำลังทำงานพร้อมกันมากเกินไป กรุณารอสักครู่แล้วลองใหม่"})
 
 
+@app.exception_handler(MySQLUnavailable)
+async def mysql_unavailable(request: Request, exc: MySQLUnavailable):
+    return JSONResponse(status_code=503, content={"detail": "MySQL engine ยังไม่ได้เปิดใช้บนเซิร์ฟเวอร์นี้ — ใช้ PostgreSQL หรือ SQLite แทน"})
+
+
 @app.exception_handler(Exception)
 async def unhandled(request: Request, exc: Exception):
     log.exception("unhandled error on %s %s", request.method, request.url.path)
     return JSONResponse(status_code=500, content={"detail": "เกิดข้อผิดพลาดภายในระบบ กรุณาลองใหม่อีกครั้ง"})
+
+
+@app.get("/api/engines")
+def engines():
+    """Which SQL engines can actually execute queries on this server (the UI only offers these)."""
+    from app.services.sandbox.mysql_engine import mysql_enabled
+    return {"engines": [{"key": "postgresql", "name": "PostgreSQL 16", "available": True},
+                        {"key": "sqlite", "name": "SQLite 3", "available": True},
+                        {"key": "mysql", "name": "MySQL 8.4", "available": mysql_enabled(),
+                         "reason": None if mysql_enabled() else "ผู้ดูแลระบบยังไม่ได้ตั้งค่า MySQL server (MYSQL_HOST)"}]}
 
 
 @app.get("/api/health")

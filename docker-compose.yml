@@ -51,12 +51,40 @@ services:
       interval: 5s
       retries: 20
 
+  # MySQL engine (Phase 3): learner SQL in MySQL dialect. Internal network only; server-side file access disabled.
+  sandbox-mysql:
+    image: mysql:8.4
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ADMIN_PASSWORD:?set MYSQL_ADMIN_PASSWORD in .env}
+    command: >
+      --local-infile=0
+      --secure-file-priv=NULL
+      --skip-name-resolve
+      --max-connections=200
+      --innodb-buffer-pool-size=256M
+      --max-allowed-packet=16M
+      --character-set-server=utf8mb4
+      --collation-server=utf8mb4_0900_ai_ci
+      --default-time-zone=+00:00
+    cpus: 1.0
+    mem_limit: 1g
+    pids_limit: 300
+    volumes: [mysql-data:/var/lib/mysql]
+    networks: [sandbox]
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -uroot -p\"$$MYSQL_ROOT_PASSWORD\" --silent"]
+      interval: 5s
+      retries: 30
+      start_period: 30s
+
   backend:
     build: ./backend
     restart: unless-stopped
     depends_on:
       main-db: { condition: service_healthy }
       sandbox-db: { condition: service_healthy }
+      sandbox-mysql: { condition: service_healthy }
     environment:
       ENV: production
       DATABASE_URL: postgresql+psycopg://${MAIN_DB_USER:-sqlab}:${MAIN_DB_PASSWORD}@main-db:5432/${MAIN_DB_NAME:-sqlab}
@@ -66,6 +94,10 @@ services:
       SANDBOX_ADMIN_PASSWORD: ${SANDBOX_ADMIN_PASSWORD}
       SANDBOX_READER_PASSWORD: ${SANDBOX_READER_PASSWORD:?set SANDBOX_READER_PASSWORD in .env}
       SANDBOX_ROLE_SECRET: ${SANDBOX_ROLE_SECRET:?set SANDBOX_ROLE_SECRET in .env}
+      MYSQL_HOST: sandbox-mysql
+      MYSQL_PORT: 3306
+      MYSQL_ADMIN_USER: root
+      MYSQL_ADMIN_PASSWORD: ${MYSQL_ADMIN_PASSWORD}
       COOKIE_SECURE: ${COOKIE_SECURE:-false}
       QUERY_TIMEOUT_MS: ${QUERY_TIMEOUT_MS:-5000}
       MAX_RESULT_ROWS: ${MAX_RESULT_ROWS:-1000}
@@ -106,3 +138,4 @@ volumes:
   main-data: {}
   sandbox-data: {}
   sqlite-data: {}
+  mysql-data: {}

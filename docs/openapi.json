@@ -3873,6 +3873,23 @@
     }
    }
   },
+  "/api/engines": {
+   "get": {
+    "summary": "Engines",
+    "description": "Which SQL engines can actually execute queries on this server (the UI only offers these).",
+    "operationId": "engines_api_engines_get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/health": {
    "get": {
     "summary": "Health",
@@ -4015,7 +4032,8 @@
       "type": "string",
       "enum": [
        "postgresql",
-       "sqlite"
+       "sqlite",
+       "mysql"
       ],
       "title": "Engine",
       "default": "postgresql"
@@ -4236,7 +4254,8 @@
       "type": "string",
       "enum": [
        "postgresql",
-       "sqlite"
+       "sqlite",
+       "mysql"
       ],
       "title": "Engine",
       "default": "postgresql"
@@ -4423,7 +4442,8 @@
       "type": "string",
       "enum": [
        "postgresql",
-       "sqlite"
+       "sqlite",
+       "mysql"
       ],
       "title": "Engine",
       "default": "postgresql"
@@ -4549,7 +4569,8 @@
       "type": "string",
       "enum": [
        "postgresql",
-       "sqlite"
+       "sqlite",
+       "mysql"
       ],
       "title": "Engine",
       "default": "postgresql"
@@ -5012,7 +5033,8 @@
       "type": "string",
       "enum": [
        "postgresql",
-       "sqlite"
+       "sqlite",
+       "mysql"
       ],
       "title": "Engine",
       "default": "postgresql"
@@ -5041,7 +5063,8 @@
       "type": "string",
       "enum": [
        "postgresql",
-       "sqlite"
+       "sqlite",
+       "mysql"
       ],
       "title": "Engine",
       "default": "postgresql"

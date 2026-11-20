@@ -1,7 +1,7 @@
-"""SQL dialect comparison: run one query on PostgreSQL and SQLite and explain the differences.
+"""SQL dialect comparison: run one query on PostgreSQL, SQLite and MySQL and explain the differences.
 
-Feature detection uses the PostgreSQL parser (pglast). MySQL and SQL Server appear as *reference
-equivalents* only — those engines are not executed by this platform (see docs/05-roadmap.md).
+Feature detection uses the PostgreSQL parser (pglast). MySQL is executed too when the MySQL engine is
+configured; SQL Server appears as a *reference equivalent* only (not executed by this platform).
 """
 from __future__ import annotations
 
@@ -69,6 +69,11 @@ FEATURES: dict[str, Feature] = {f.key: f for f in [
             "DECIMAL(10,2)", "DECIMAL(10,2)", "ผลรวมเงินบน SQLite อาจต่างจาก PostgreSQL ในหลักทศนิยมท้าย ๆ"),
     Feature("int_division", "หารจำนวนเต็ม", "7 / 2 = 3", "7 / 2 = 3", "7 / 2 = 3.5000 (ใช้ DIV สำหรับหารเต็ม)", "7 / 2 = 3",
             "MySQL หารเป็นทศนิยมเสมอ"),
+    Feature("collation", "เปรียบเทียบข้อความ (ตัวพิมพ์เล็ก/ใหญ่)", "'Bangkok' = 'bangkok' เป็นเท็จ (แยกตัวพิมพ์)",
+            "'=' แยกตัวพิมพ์ แต่ LIKE ไม่แยก (ASCII)",
+            "ค่าเริ่มต้น utf8mb4_0900_ai_ci ไม่แยกตัวพิมพ์ — มีผลกับ =, GROUP BY, DISTINCT, UNIQUE (ใช้ COLLATE utf8mb4_bin หรือ BINARY ถ้าต้องการแยก)",
+            "ขึ้นกับ collation (ค่าเริ่มต้นมักไม่แยกตัวพิมพ์)",
+            "ข้อมูลที่สะกดตัวพิมพ์ไม่สม่ำเสมอ (เช่นชื่อเมือง) จะถูกรวมกลุ่มต่างกันใน MySQL"),
 ]}
 
 DATE_FUNCS = {"date_trunc": "date_trunc", "date_part": "extract", "extract": "extract", "to_char": "to_char", "age": "age",
@@ -95,6 +100,8 @@ def detect_features(sql: str) -> list[str]:
                 add("limit")
             if n.distinctClause and any(d is not None for d in n.distinctClause):
                 add("distinct_on")
+            if n.groupClause or n.distinctClause:
+                add("collation")
         if isinstance(n, ast.A_Expr) and n.name:
             op = n.name[-1].sval
             if op in ("~~*", "!~~*"):
@@ -105,6 +112,8 @@ def detect_features(sql: str) -> list[str]:
                 add("json")
             elif op == "||":
                 add("concat")
+            elif op == "=" and any(isinstance(x, ast.A_Const) and isinstance(x.val, ast.String) for x in (n.lexpr, n.rexpr)):
+                add("collation")
             elif op == "/" and all(isinstance(x, ast.A_Const) and isinstance(x.val, ast.Integer) for x in (n.lexpr, n.rexpr)):
                 add("int_division")
         if isinstance(n, ast.FuncCall):
@@ -139,33 +148,57 @@ def _has_order(sql: str) -> bool:
         return False
 
 
-def compare(sql: str, pg_result, sqlite_result) -> dict:
-    out: dict = {"same": None, "message": "", "details": {}}
-    if not pg_result.ok or not sqlite_result.ok:
-        which = [n for n, r in (("PostgreSQL", pg_result), ("SQLite", sqlite_result)) if not r.ok]
-        out["message"] = (f"รันไม่สำเร็จบน {' และ '.join(which)} — มักเกิดจากฟังก์ชันหรือ syntax ที่มีเฉพาะบาง engine (ดูตารางเทียบด้านล่าง)"
-                          if len(which) == 1 else "รันไม่สำเร็จทั้งสอง engine — ตรวจ SQL อีกครั้ง")
-        out["same"] = False if len(which) == 1 else None
-        return out
-    a, b = pg_result.last_rows, sqlite_result.last_rows
+NAMES = {"postgresql": "PostgreSQL", "sqlite": "SQLite", "mysql": "MySQL"}
+
+
+def _pair(sql: str, pg, other, name: str) -> dict:
+    """Compare one engine's last result set against PostgreSQL's (the reference)."""
+    a, b = pg.last_rows, other.last_rows
     if a is None and b is None:
-        out["same"], out["message"] = True, "ทั้งสอง engine ทำคำสั่งสำเร็จ (ไม่มีผลลัพธ์เป็นตาราง)"
-        return out
+        return {"same": True, "message": "ทำคำสั่งสำเร็จ (ไม่มีผลลัพธ์เป็นตาราง)", "details": {}}
     if a is None or b is None:
-        out["same"], out["message"] = False, "engine หนึ่งคืนผลลัพธ์เป็นตาราง แต่อีก engine ไม่คืน"
-        return out
+        return {"same": False, "message": "engine หนึ่งคืนผลลัพธ์เป็นตาราง แต่อีก engine ไม่คืน", "details": {}}
     to_dict = lambda r: {"columns": [asdict(c) for c in r.columns], "rows": r.rows, "truncated": r.truncated}  # noqa: E731
-    # compare against SQLite's column types as "expected" so numeric text from PostgreSQL is normalized
-    pg = to_dict(a)
-    sq = to_dict(b)
-    sq["columns"] = [{"name": c["name"], "type": pc["type"]} for c, pc in zip(sq["columns"], pg["columns"], strict=False)]
-    chk = compare_results(sq, pg, order_matters=_has_order(sql), check_column_names=False)
-    out["same"] = chk.correct
-    out["message"] = ("ผลลัพธ์ตรงกันทั้งสอง engine ✔" if chk.correct else
-                      f"ผลลัพธ์ต่างกัน: {chk.message.replace('ได้', 'SQLite ได้').replace('คาดหวัง', 'PostgreSQL ได้')}")
-    out["details"] = chk.details
+    exp, act = to_dict(a), to_dict(b)
+    # use PostgreSQL's column types for both sides so numeric text vs numbers are normalized the same way
+    act["columns"] = [{"name": c["name"], "type": pc["type"]} for c, pc in zip(act["columns"], exp["columns"], strict=False)]
+    chk = compare_results(act, exp, order_matters=_has_order(sql), check_column_names=False)
+    out = {"same": chk.correct, "details": chk.details,
+           "message": ("ตรงกับ PostgreSQL ✔" if chk.correct else
+                       chk.message.split(" — ")[0].replace("ได้", f"{NAMES[name]} ได้").replace("คาดหวัง", " PostgreSQL ได้"))}
+    if not chk.correct and name == "mysql" and "collation" in detect_features(sql):
+        out["message"] += " · อาจเกิดจาก collation ของ MySQL ที่ไม่แยกตัวพิมพ์เล็ก/ใหญ่ (เช่น 'Bangkok' กับ 'bangkok' ถูกนับเป็นค่าเดียวกัน)"
     names_a, names_b = [c.name for c in a.columns], [c.name for c in b.columns]
     if names_a != names_b:
-        out["details"]["column_names"] = {"postgresql": names_a, "sqlite": names_b}
+        out["details"]["column_names"] = {"postgresql": names_a, name: names_b}
         out["message"] += " · ชื่อคอลัมน์อัตโนมัติต่างกัน (ตั้งชื่อด้วย AS เพื่อให้เหมือนกันทุก engine)"
+    return out
+
+
+def compare(sql: str, results: dict) -> dict:
+    """results: engine -> ExecutionResult (must include "postgresql", the reference)."""
+    failed = [NAMES[k] for k, r in results.items() if not r.ok]
+    out: dict = {"same": None, "message": "", "details": {}, "engines": {}}
+    pg = results["postgresql"]
+    for k, r in results.items():
+        if k == "postgresql":
+            continue
+        if pg.ok and r.ok:
+            out["engines"][k] = _pair(sql, pg, r, k)
+        else:
+            out["engines"][k] = {"same": False if pg.ok != r.ok else None, "details": {},
+                                 "message": "รันไม่สำเร็จ" if not r.ok else "PostgreSQL รันไม่สำเร็จ"}
+    if failed:
+        all_failed = len(failed) == len(results)
+        out["same"] = None if all_failed else False
+        out["message"] = ("รันไม่สำเร็จทุก engine — ตรวจ SQL อีกครั้ง" if all_failed else
+                          f"รันไม่สำเร็จบน {' และ '.join(failed)} — มักเกิดจากฟังก์ชันหรือ syntax ที่มีเฉพาะบาง engine (ดูตารางเทียบด้านล่าง)")
+        return out
+    diffs = [k for k, v in out["engines"].items() if not v["same"]]
+    out["same"] = not diffs
+    others = " และ ".join(NAMES[k] for k in out["engines"])
+    out["message"] = (f"ผลลัพธ์ตรงกันทุก engine (PostgreSQL, {others}) ✔" if not diffs else
+                      "ผลลัพธ์ต่างกัน — " + " · ".join(f"{NAMES[k]}: {out['engines'][k]['message']}" for k in diffs))
+    if len(out["engines"]) == 1:
+        out["details"] = next(iter(out["engines"].values()))["details"]
     return out

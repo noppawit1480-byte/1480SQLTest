@@ -3,6 +3,7 @@ shape for the visualizer, and run the Index Lab (before/after comparison on a th
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 import pglast
@@ -29,6 +30,22 @@ def single_statement(sql: str, allowed: tuple[type, ...]) -> str:
     if not isinstance(st, allowed):
         raise PlanError("คำสั่งนี้ไม่รองรับในโหมดนี้")
     return RawStream()(st)
+
+
+def single_statement_mysql(sql: str) -> str:
+    """MySQL statements are not parsed with the PostgreSQL parser: allow exactly one SELECT/WITH/TABLE/DML statement."""
+    from app.services.sandbox.postgres import first_keyword
+    from app.services.sql_split import split_statements
+    stmts = split_statements(sql)
+    if len(stmts) != 1:
+        raise PlanError("วิเคราะห์แผนได้ทีละคำสั่ง — เลือกเพียงคำสั่งเดียว")
+    text = stmts[0].text
+    kw = first_keyword(text)
+    if kw == "EXPLAIN":
+        raise PlanError("ใส่เฉพาะ query — ระบบจะเติม EXPLAIN ให้เอง")
+    if kw not in ("SELECT", "WITH", "TABLE", "INSERT", "UPDATE", "DELETE", "REPLACE"):
+        raise PlanError("คำสั่งนี้ไม่รองรับในโหมดนี้")
+    return text
 
 
 def _pg_node(n: dict, counter: list[int]) -> dict:
@@ -86,6 +103,69 @@ def normalize_sqlite(rows: list[list]) -> dict:
     return {"engine": "sqlite", "root": nodes[0], "planning_ms": None, "execution_ms": None, "total_cost": None, "analyzed": False}
 
 
+_MY_COST = re.compile(r"\(cost=([\d.e+-]+) rows=([\d.e+-]+)\)")
+_MY_ACTUAL = re.compile(r"\(actual time=([\d.e+-]+)\.\.([\d.e+-]+) rows=([\d.e+-]+) loops=(\d+)\)")
+_MY_KINDS = (("Covering index lookup on ", "Covering index lookup"), ("Index lookup on ", "Index lookup"),
+             ("Single-row index lookup on ", "Single-row index lookup"), ("Index range scan on ", "Index range scan"),
+             ("Covering index scan on ", "Covering index scan"), ("Index scan on ", "Index scan"),
+             ("Single-row covering index lookup on ", "Single-row covering index lookup"), ("Table scan on ", "Table scan"))
+
+
+def normalize_mysql(tree_text: str) -> dict:
+    """MySQL `EXPLAIN FORMAT=TREE` / `EXPLAIN ANALYZE` text -> the common plan tree shape."""
+    root = {"id": 0, "label": "QUERY PLAN", "detail": [], "children": []}
+    stack: list[tuple[int, dict]] = [(-1, root)]
+    counter = 0
+    for raw in tree_text.splitlines():
+        if "->" not in raw:
+            continue
+        depth = (len(raw) - len(raw.lstrip())) // 4
+        text = raw.strip()[2:].strip()
+        cost, actual = _MY_COST.search(text), _MY_ACTUAL.search(text)
+        cut = min([m.start() for m in (cost, actual) if m] or [len(text)])
+        desc = text[:cut].strip()
+        counter += 1
+        label, rel, index, detail = desc, None, None, []
+        for prefix, name in _MY_KINDS:
+            if desc.startswith(prefix):
+                label = name
+                rest = desc[len(prefix):]
+                rel = rest.split(" ")[0]
+                m = re.search(r" using (\S+)", rest)
+                index = m.group(1) if m else None
+                cond = re.search(r"\((.*)\)$", rest)
+                if cond and index:
+                    detail.append(f"Index Cond: {cond.group(1)}")
+                break
+        else:
+            if ":" in desc:
+                label, _, d = desc.partition(":")
+                detail.append(f"{label.strip()}: {d.strip()}")
+        loops = int(actual.group(4)) if actual else None
+        node = {"id": counter, "label": label.strip(), "relation": rel if rel and not rel.startswith("<") else None,
+                "alias": None, "index": index, "detail": detail,
+                "est_rows": float(cost.group(2)) if cost else None, "est_cost": float(cost.group(1)) if cost else None,
+                "startup_cost": None, "actual_rows": float(actual.group(3)) if actual else None, "loops": loops,
+                "time_ms": float(actual.group(2)) * (loops or 1) if actual else None, "children": []}
+        while stack and stack[-1][0] >= depth:
+            stack.pop()
+        stack[-1][1]["children"].append(node)
+        stack.append((depth, node))
+    top = root["children"][0] if len(root["children"]) == 1 else root
+    first_cost = None
+
+    def find_cost(n):
+        nonlocal first_cost
+        if first_cost is None and n.get("est_cost") is not None:
+            first_cost = n["est_cost"]
+        for c in n.get("children", []):
+            find_cost(c)
+    find_cost(top)
+    analyzed = top.get("time_ms") is not None
+    return {"engine": "mysql", "root": top, "planning_ms": None, "execution_ms": top.get("time_ms") if analyzed else None,
+            "total_cost": first_cost, "analyzed": analyzed}
+
+
 def summarize(plan: dict) -> dict:
     flat = []
 
@@ -94,7 +174,7 @@ def summarize(plan: dict) -> dict:
         for c in n.get("children", []):
             walk_(c)
     walk_(plan["root"])
-    return {"nodes": len(flat), "seq_scans": sorted({n["relation"] for n in flat if n["label"] in ("Seq Scan", "SCAN") and n.get("relation")}),
+    return {"nodes": len(flat), "seq_scans": sorted({n["relation"] for n in flat if n["label"] in ("Seq Scan", "SCAN", "Table scan") and n.get("relation")}),
             "indexes_used": sorted({n["index"] for n in flat if n.get("index")}),
             "total_cost": plan.get("total_cost"), "execution_ms": plan.get("execution_ms")}
 

@@ -309,7 +309,7 @@ export interface GeneratedPractice {
 }
 
 // ---------------------------------------------------------------- Phase 3
-export type Engine = "postgresql" | "sqlite";
+export type Engine = "postgresql" | "sqlite" | "mysql";
 
 export interface PlanNode {
   id: number;

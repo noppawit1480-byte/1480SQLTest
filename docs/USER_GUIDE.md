@@ -37,7 +37,8 @@
   - *Writable* (ต้อง login): ฐานข้อมูล **ส่วนตัว** ของคุณ ทำ INSERT/UPDATE/DELETE/CREATE/ALTER/DROP/Transaction ได้ — กด **Reset** เพื่อคืนค่าเริ่มต้น
 - **History** บันทึกอัตโนมัติ · **Saved** บันทึก query ที่ใช้บ่อย
 - ข้อจำกัด: query ละไม่เกิน 5 วินาที, แสดงไม่เกิน 1,000 แถว, SQL ไม่เกิน 20,000 ตัวอักษร / 50 คำสั่ง
-- **Engine** (Phase 3): เลือก **PostgreSQL** หรือ **SQLite** ที่แถบซ้าย — ข้อมูลตัวอย่างเหมือนกันทุกแถว จึงใช้เทียบไวยากรณ์ได้ · Writable sandbox แยกกันต่อ engine · syntax validation ขณะพิมพ์ใช้กับ PostgreSQL เท่านั้น · MySQL ยังไม่มีให้รันจริง
+- **Engine** (Phase 3): เลือก **PostgreSQL**, **SQLite** หรือ **MySQL** ที่แถบซ้าย — ข้อมูลตัวอย่างเหมือนกันทุกแถว จึงใช้เทียบไวยากรณ์ได้ · Writable sandbox แยกกันต่อ engine · syntax validation ขณะพิมพ์ใช้กับ PostgreSQL เท่านั้น · ถ้าเซิร์ฟเวอร์ไม่ได้เปิด MySQL ตัวเลือกจะขึ้นว่า "ไม่พร้อมใช้งาน"
+- **MySQL ที่ควรรู้**: การเทียบข้อความไม่แยกตัวพิมพ์เล็ก/ใหญ่ (`'bangkok' = 'Bangkok'` เป็นจริง และ GROUP BY รวมเป็นกลุ่มเดียว) · `7/2` ได้ `3.5000` · ใช้ backtick `` `ชื่อ` `` แทน double quote · boolean เป็น 1/0
 - **Explain / Analyze**: ดูแผนการทำงานของ query เป็นต้นไม้ (cost, จำนวนแถวประมาณการ/จริง, เวลา) ในแท็บ **Plan** พร้อมคำแนะนำ · *Analyze* รัน query จริงเพื่อวัดเวลา (คำสั่งที่แก้ข้อมูลจะถูก rollback)
 
 ## เครื่องมือมืออาชีพ (Phase 3)
@@ -45,12 +46,12 @@
 ใส่ query และ `CREATE INDEX` ที่อยากลอง (ไม่เกิน 3 คำสั่ง) → ระบบรัน EXPLAIN ANALYZE **ก่อนและหลัง** สร้าง index บนสำเนาฐานข้อมูลชั่วคราว แล้วเทียบเวลา cost และ index ที่ถูกใช้ — ไม่มีอะไรถูกเก็บถาวร (ต้อง login)
 
 ### SQL Dialects (เมนู SQL Dialects)
-ตารางเทียบไวยากรณ์ PostgreSQL / SQLite / MySQL 24 หัวข้อ และช่องรัน query เดียวกันบน PostgreSQL กับ SQLite เพื่อดูว่าผลตรงกันหรือไม่ พร้อมชี้ feature ที่ใช้เฉพาะบาง dialect
+ตารางเทียบไวยากรณ์ PostgreSQL / SQLite / MySQL / SQL Server 25 หัวข้อ และช่องรัน query เดียวกันบน PostgreSQL, SQLite และ MySQL เพื่อดูว่าผลตรงกับ PostgreSQL หรือไม่ พร้อมชี้ feature ที่ใช้เฉพาะบาง dialect
 
 ### DB Designer (เมนู DB Designer)
 - **ER Diagram Builder**: เพิ่มตาราง คอลัมน์ (PK / NOT NULL / UNIQUE / identity / default) และ Foreign key → ER diagram และข้อเตือนอัปเดตทันที → DDL สำหรับ PostgreSQL, SQLite, MySQL
 - **โหลดโครงสร้างจาก DB ตัวอย่าง** เพื่อศึกษา/ดัดแปลง · **บันทึกแบบ** ไว้ในบัญชี
-- **สร้างใน Writable sandbox**: สร้างตารางจริงในฐานข้อมูล `blank` ส่วนตัวของคุณ (PostgreSQL หรือ SQLite) — ข้อมูลเดิมใน `blank` จะถูกล้าง แล้วกดลิงก์ไปทดลองใน Playground
+- **สร้างใน Writable sandbox**: สร้างตารางจริงในฐานข้อมูล `blank` ส่วนตัวของคุณ (PostgreSQL, SQLite หรือ MySQL) — ข้อมูลเดิมใน `blank` จะถูกล้าง แล้วกดลิงก์ไปทดลองใน Playground
 - **นำเข้า CSV**: เลือกไฟล์ (≤ 5 MB, ≤ 50,000 แถว) → ตรวจ/แก้ชนิดข้อมูลที่ระบบเดาให้ → ตั้งชื่อตาราง → นำเข้าในฐานข้อมูล `blank` · ติ๊ก "แทนที่ตารางเดิม" ถ้าต้องการเขียนทับ
 
 ## Challenges & Mock Interview (เมนู Challenges)

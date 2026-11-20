@@ -1,7 +1,7 @@
 # Sample Databases — ER Diagrams & Data Dictionary
 
 > GENERATED จาก catalog จริงของ sandbox (`GET /api/databases/{key}`) — หน้าเว็บ /databases แสดงข้อมูลเดียวกันแบบ interactive
-> ทุกฐานข้อมูลมีสำเนา SQLite ที่ export จากข้อมูลชุดเดียวกัน (Phase 3) — ใช้ได้ทั้ง engine PostgreSQL และ SQLite
+> ทุกฐานข้อมูลมีสำเนา SQLite และ MySQL ที่ export จากข้อมูลชุดเดียวกัน (Phase 3) — ใช้ได้ทั้ง engine PostgreSQL, SQLite และ MySQL
 
 ## E-Commerce (`ecommerce`)
 

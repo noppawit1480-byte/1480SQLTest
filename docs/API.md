@@ -147,21 +147,24 @@
 ทุก action ถูกบันทึกใน log: `event=admin_action admin=<id> action=<...> target=<...>`
 
 ## Multiple engines (Phase 3)
-Playground endpoints รับ `engine: "postgresql" | "sqlite"` (ค่าเริ่มต้น `postgresql`):
+`GET /engines` → `{engines: [{key, name, available, reason}]}` — engine ที่เซิร์ฟเวอร์นี้รันได้จริง (MySQL `available: false` พร้อม `reason` ถ้าไม่ได้ตั้งค่า `MYSQL_HOST`; ขอ `engine: "mysql"` ตอนนั้นได้ `503`)
+
+Playground endpoints รับ `engine: "postgresql" | "sqlite" | "mysql"` (ค่าเริ่มต้น `postgresql`):
 `POST /playground/execute`, `POST /playground/reset`, `POST /saved-queries` (บันทึก engine), `GET /databases/{key}?mode=&engine=`, `GET /databases/{key}/tables/{table}/preview?engine=` · รายการ History/Saved คืน `engine`
 SQLite error `kind`: `timeout` (เกิน `QUERY_TIMEOUT_MS`), `permission` (ATTACH, load_extension, PRAGMA ที่ไม่อนุญาต, เขียนในโหมด read-only), `limit` (ฐานข้อมูลส่วนตัวเกินขนาด)
+MySQL error `kind`: `timeout` (watchdog `KILL QUERY` — ทุกชนิดคำสั่ง), `permission` (เขียนในโหมด read-only, `INTO OUTFILE`/`LOAD DATA`, `mysql.*`, `SET GLOBAL`, GRANT/CREATE USER/EVENT, DB ของคนอื่น) · `sqlstate` เป็น `MY<รหัส MySQL>` เช่น `MY1064`
 
 ## Execution plan & optimization 👤 (Phase 3)
 | Method | Path | Notes |
 |---|---|---|
-| POST | `/plans/explain` | `{sql, db_key, engine, mode, analyze}` (1 statement) → `{ok, plan: {engine, root: PlanNode, total_cost, execution_ms, …}, summary: {nodes, seq_scans, indexes_used, total_cost, execution_ms}, findings}` (ล้มเหลว: `{ok: false, error, sqlstate}`) · `analyze` ใช้ได้กับ PostgreSQL; คำสั่งที่แก้ข้อมูลถูก rollback · `mode: writable` ต้อง 🔒 |
+| POST | `/plans/explain` | `{sql, db_key, engine, mode, analyze}` (1 statement) → `{ok, plan: {engine, root: PlanNode, total_cost, execution_ms, …}, summary: {nodes, seq_scans, indexes_used, total_cost, execution_ms}, findings}` (ล้มเหลว: `{ok: false, error, sqlstate}`) · `analyze` ใช้ได้กับ PostgreSQL และ MySQL (`EXPLAIN ANALYZE`); บน writable คำสั่งที่แก้ข้อมูลถูก rollback · MySQL รับเฉพาะ SELECT/WITH/TABLE/INSERT/UPDATE/DELETE/REPLACE · SQLite ใช้ `EXPLAIN QUERY PLAN` · `mode: writable` ต้อง 🔒 |
 | POST | `/plans/index-lab` 🔒 | `{sql, index_sql, db_key}` — `index_sql` รับเฉพาะ `CREATE INDEX` ≤ 3 คำสั่ง · รัน EXPLAIN ANALYZE ก่อน/หลังบนสำเนาฐานข้อมูลใหม่ → `{ok, before, after, summary_before, summary_after, new_indexes_used, speedup, verdict, note}` |
 
 ## SQL dialects 👤 (Phase 3)
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/dialects/reference` | 24 หัวข้อ: วิธีเขียนใน PostgreSQL / SQLite / MySQL + หมายเหตุ |
-| POST | `/dialects/compare` | `{sql, db_key}` → รันบน PostgreSQL และ SQLite (read-only) → `{postgresql, sqlite, comparison: {same, message, details}, features}` |
+| GET | `/dialects/reference` | 25 หัวข้อ: วิธีเขียนใน PostgreSQL / SQLite / MySQL / SQL Server + หมายเหตุ · `executable` = engine ที่รันจริงได้ |
+| POST | `/dialects/compare` | `{sql, db_key}` → รันบนทุก engine ที่เปิดอยู่ (read-only) → `{engines, postgresql, sqlite, mysql?, comparison: {same, message, details, engines: {sqlite: {same, message}, mysql: {…}}}, features}` · PostgreSQL เป็นตัวอ้างอิง |
 
 ## Database design & CSV import (Phase 3)
 | Method | Path | Notes |
@@ -170,7 +173,7 @@ SQLite error `kind`: `timeout` (เกิน `QUERY_TIMEOUT_MS`), `permission` (
 | GET | `/designs/from-db/{key}` 👤 | reverse-engineer sample DB เป็น design |
 | GET / POST | `/designs` 🔒 | แบบของฉัน / บันทึกแบบใหม่ `{name, design}` (ต้องไม่มี error) |
 | GET / PUT / DELETE | `/designs/{id}` 🔒 | เฉพาะเจ้าของ (คนอื่นได้ `404`) |
-| POST | `/designs/{id}/apply` 🔒 | `{engine}` → **ล้าง** ฐานข้อมูล `blank` ของผู้ใช้ (Writable) แล้วรัน DDL |
+| POST | `/designs/{id}/apply` 🔒 | `{engine}` (`postgresql`/`sqlite`/`mysql`) → **ล้าง** ฐานข้อมูล `blank` ของผู้ใช้ (Writable) แล้วรัน DDL |
 | POST | `/csv/preview` 🔒 | `{csv_text, delimiter: , ; \| tab, has_header}` → `{columns: [{name, type, nulls, sample}], row_count, sample}` |
 | POST | `/csv/import` 🔒 | `{csv_text, delimiter, has_header, db_key: "blank", engine, table_name, columns?, replace}` → นำเข้าใน Writable sandbox · `422` พร้อมเหตุผลถ้ามีตารางอยู่แล้วและไม่ได้เลือก `replace` หรือข้อมูลแปลงตามชนิดไม่ได้ · จำกัด 5 MB / 50,000 แถว / 100 คอลัมน์ |
 

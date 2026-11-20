@@ -37,7 +37,7 @@ class LoginIn(BaseModel):
     password: str = Field(max_length=128)
 
 
-Engine = Literal["postgresql", "sqlite"]
+Engine = Literal["postgresql", "sqlite", "mysql"]
 
 
 class ExecuteIn(BaseModel):

@@ -78,6 +78,13 @@ def seed(db: Session, rebuild: bool = False) -> None:
     for key, *_ in SAMPLE_DATABASES:  # SQLite copies of every sample DB (second engine)
         if rebuild or key in created or not sq.ro_path(key).exists():
             sq.export(key)
+    from app.services.sandbox.mysql_engine import get_mysql, mysql_enabled
+    if mysql_enabled():  # MySQL copies (third engine, optional) — rebuilt every seed so they always match
+        my = get_mysql()
+        for key, *_ in SAMPLE_DATABASES:
+            my.export(key)
+    else:
+        log.info("MySQL engine disabled (MYSQL_HOST not set) — skipping MySQL export")
 
     for i, (key, name, desc) in enumerate(SAMPLE_DATABASES):
         row = db.get(SampleDatabase, key) or SampleDatabase(key=key)

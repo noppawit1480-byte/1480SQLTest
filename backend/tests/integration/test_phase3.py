@@ -65,12 +65,12 @@ def test_sqlite_schema_and_history(user_client):
 # ------------------------------------------------------------------ dialects
 def test_dialect_comparison(anon):
     same = anon.post("/api/dialects/compare", json={"sql": "SELECT city, COUNT(*) AS n FROM customers GROUP BY city ORDER BY n DESC, city"}).json()
-    assert same["comparison"]["same"] is True
+    assert same["comparison"]["engines"]["sqlite"]["same"] is True
     diff = anon.post("/api/dialects/compare", json={"sql": "SELECT DATE_TRUNC('month', order_date)::date AS m FROM orders LIMIT 1"}).json()
     assert diff["postgresql"]["ok"] and not diff["sqlite"]["ok"] and diff["comparison"]["same"] is False
     assert {"date_trunc", "cast_op", "limit"} <= {f["key"] for f in diff["features"]}
     ref = anon.get("/api/dialects/reference").json()
-    assert ref["executable"] == ["postgresql", "sqlite"] and len(ref["features"]) >= 20
+    assert ref["executable"][:2] == ["postgresql", "sqlite"] and len(ref["features"]) >= 20
 
 
 # ------------------------------------------------------------------ plans & index lab
@@ -278,3 +278,14 @@ def test_moderation(user_client):
     viewer = make_client()
     t = next(t for t in viewer.get("/api/discussions?target_type=lesson&target_key=select").json()["threads"] if t["id"] == p["id"])
     assert t["is_hidden"] and t["body"] is None
+
+
+def test_mysql_disabled_is_reported_not_faked(anon, monkeypatch):
+    from app.config import get_settings
+    monkeypatch.setattr(get_settings(), "mysql_host", "")
+    eng = {e["key"]: e for e in anon.get("/api/engines").json()["engines"]}
+    assert eng["mysql"]["available"] is False and eng["mysql"]["reason"]
+    r = anon.post("/api/playground/execute", json={"db_key": "ecommerce", "engine": "mysql", "sql": "SELECT 1"})
+    assert r.status_code == 503 and "MySQL" in r.json()["detail"]
+    assert anon.get("/api/dialects/reference").json()["executable"] == ["postgresql", "sqlite"]
+    assert anon.post("/api/dialects/compare", json={"sql": "SELECT 1 AS x"}).json()["engines"] == ["postgresql", "sqlite"]

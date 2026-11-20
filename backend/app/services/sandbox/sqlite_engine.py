@@ -250,6 +250,11 @@ def get_engine(name: str):
     """Engine registry — the API layer only talks to engines through this."""
     if name == "sqlite":
         return get_sqlite()
+    if name == "mysql":
+        from app.services.sandbox.mysql_engine import MySQLUnavailable, get_mysql, mysql_enabled
+        if not mysql_enabled():
+            raise MySQLUnavailable("MySQL engine ยังไม่ได้เปิดใช้บนเซิร์ฟเวอร์นี้ (ไม่ได้ตั้งค่า MYSQL_HOST)")
+        return get_mysql()
     if name in ("postgresql", "postgres", ""):
         return get_sandbox()
     raise ValueError(f"unsupported engine: {name}")
